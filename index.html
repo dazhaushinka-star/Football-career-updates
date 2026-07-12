@@ -695,7 +695,23 @@
     if (!eligibleForCup()) return;
     if (!state.cup){ const me=state.table[state.clubName]; if(me&&me.p>=2) startCup(); return; }
     if (state.cup.done) return;
-    if (!state.cupNextQueued){ const me=state.table[state.clubName]; if(me&&me.p%3===0) state.cupNextQueued=true; }
+    if (!state.cupNextQueued){
+      const me=state.table[state.clubName];
+      const leagueLeft = state.fixtures.length - state.fixturePtr;
+      // Normally queue a cup tie every few games. But if the league is nearly
+      // over and the cup isn't finished, force cup ties now so the final always
+      // gets played before the season rolls over.
+      if (me && (me.p%3===0 || leagueLeft<=1)) state.cupNextQueued=true;
+    }
+  }
+
+  // How many cup ties are still to be played (incl. the current stage)?
+  function cupTiesRemaining(){
+    const cup=state.cup; if(!cup||cup.done) return 0;
+    let n=0;
+    n += (cup.groupOpp.length - cup.groupResults.length); // remaining group games
+    ["qf","sf","final"].forEach(stg=>{ const ko=cup.bracket[stg]; if(!ko || ko.ms==null) n++; });
+    return n;
   }
 
   // ================= WHAT'S NEXT =================
@@ -704,6 +720,12 @@
     if (state.intlTournament && !state.intlTournament.done) return "tournament";
     if (state.intlPending) return "friendly";
     if (state.cup && !state.cup.done && state.cupNextQueued) return "cup";
+    // Safety net: if the league has no fixtures left but the cup is unfinished,
+    // always finish the cup (final included) before the season can advance.
+    if (state.cup && !state.cup.done && (state.fixtures.length - state.fixturePtr) <= 0){
+      state.cupNextQueued = true;
+      return "cup";
+    }
     return "league";
   }
 
