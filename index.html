@@ -669,6 +669,8 @@
     if(!c.history) c.history=[];
     if(c.band===undefined||c.band===null) c.band = rollBand(c.tierIndex); // backfill for old saves
     if(c.euroComp===undefined) c.euroComp = null;
+    // Backfill an in-progress cup from an older save that predates named competitions.
+    if(c.cup && !c.cup.name){ const comp=EURO_COMPS[c.cup.comp||"cl"]||EURO_COMPS.cl; c.cup.comp=c.cup.comp||"cl"; c.cup.name=comp.name; c.cup.icon=comp.icon; }
     if(!c.seasonLog) c.seasonLog={season:c.season,tier:TIERS[c.tierIndex],leagueGoals:0,promoted:false,relegated:false,champions:false,finishPos:null,band:c.band,clTrophy:false,euroComp:c.euroComp||null,euroTrophy:null,intlTrophy:null,intlComp:null};
     else if(c.seasonLog.band===undefined) c.seasonLog.band=c.band; // backfill
   }
@@ -1347,9 +1349,10 @@
       state.intlGoals+=pg; state.intlCaps++; state.careerGoals=(state.careerGoals||0)+pg;
       if (t.done && t.won){
         state.careerTrophies=(state.careerTrophies||0)+1;
-        state.seasonLog.intlTrophy=t.name;
-        verdict=`${t.name} WINNERS! 🏆`;
-        sub=`${state.playerName} lifts the ${t.name} with ${state.nationality}!`;
+        const tn = t.name || "International Tournament";
+        state.seasonLog.intlTrophy=tn;
+        verdict=`${tn} WINNERS! 🏆`;
+        sub=`${state.playerName} lifts the ${tn} with ${state.nationality}!`;
       } else {
         verdict=`${state.nationality} win ${myScore}–${oppScore}!`;
         sub=`Into the ${stageLabel(t.stage)}. ${scorerSub(pg)}`;
@@ -1361,9 +1364,10 @@
       state.careerGoals=(state.careerGoals||0)+pg;
       if (state.cup.done && state.cup.won){
         state.careerTrophies=(state.careerTrophies||0)+1;
-        state.seasonLog.euroTrophy=state.cup.comp;   // which European cup was won
-        if (state.cup.comp==="cl") state.seasonLog.clTrophy=true; // keep legacy flag for cabinet
-        const cn=state.cup.name;
+        const compKey = state.cup.comp || "cl";           // old saves had no comp -> treat as Champions League
+        state.seasonLog.euroTrophy = compKey;             // which European cup was won
+        if (compKey==="cl") state.seasonLog.clTrophy=true; // keep legacy flag for cabinet
+        const cn = state.cup.name || (EURO_COMPS[compKey] ? EURO_COMPS[compKey].name : "Champions League");
         verdict=`${cn} WINNERS! 🏆`; sub=`${state.playerName} lifts the ${cn} with ${myTeamName}.`;
       } else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=`Into the ${stageLabel(state.cup.stage)}. ${scorerSub(pg)}`; }
     }
