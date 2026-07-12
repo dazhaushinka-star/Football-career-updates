@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dream Career</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap');
+
+  :root {
+    --pitch: #0b6e3b;
+    --pitch-dark: #084d2a;
+    --pitch-line: rgba(255,255,255,0.14);
+    --gold: #f7c948;
+    --gold-deep: #d99e0b;
+    --ink: #0a1a12;
+    --chalk: #f8faf5;
+    --terrace: #12241a;
+    --shirt: #d7263d;
+    --danger: #e05a5a;
+    --intl: #35a7ff;
+    --cup: #b07bff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: 'Barlow', system-ui, sans-serif;
+    background: var(--terrace);
+    color: var(--chalk);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .app {
+    max-width: 640px; margin: 0 auto; min-height: 100vh;
+    background: linear-gradient(180deg, var(--pitch) 0%, var(--pitch-dark) 100%);
+    position: relative; display: flex; flex-direction: column;
+  }
+  .app::before {
+    content: ""; position: fixed; inset: 0; max-width: 640px; margin: 0 auto;
+    background: repeating-linear-gradient(180deg,
+      rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 46px,
+      transparent 46px, transparent 92px);
+    pointer-events: none; z-index: 0;
+  }
+  header, main, footer, nav { position: relative; z-index: 1; }
+
+  header {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--pitch-line);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .crest {
+    width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center;
+    font-family: 'Anton', sans-serif; font-size: 22px; color: var(--ink);
+    background: var(--shirt); box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+    flex-shrink: 0; line-height: 1; overflow: hidden;
+  }
+  .club-meta { flex: 1; min-width: 0; }
+  .club-name {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 22px;
+    letter-spacing: 0.5px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .club-tier { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gold); font-weight: 600; margin-top: 3px; }
+
+  .top-btns { display: flex; gap: 8px; flex-shrink: 0; }
+  .icon-btn {
+    background: rgba(0,0,0,0.25); border: 1px solid var(--pitch-line); color: var(--chalk);
+    height: 40px; min-width: 40px; padding: 0 10px; border-radius: 10px; font-size: 15px;
+    font-weight: 600; cursor: pointer; display: grid; place-items: center;
+  }
+  .icon-btn:active { transform: scale(0.94); }
+
+  .ladder {
+    display: flex; gap: 6px; padding: 12px 20px; overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1px solid var(--pitch-line);
+  }
+  .ladder::-webkit-scrollbar { display: none; }
+  .rung {
+    flex-shrink: 0; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 12px;
+    letter-spacing: 0.5px; text-transform: uppercase; padding: 6px 11px; border-radius: 20px;
+    background: rgba(0,0,0,0.22); color: rgba(255,255,255,0.45); border: 1px solid transparent; white-space: nowrap;
+  }
+  .rung.done { color: var(--chalk); background: rgba(0,0,0,0.35); }
+  .rung.active { background: var(--gold); color: var(--ink); border-color: var(--gold-deep); }
+
+  nav.tabs { display: flex; gap: 2px; padding: 10px 12px 0; border-bottom: 1px solid var(--pitch-line); overflow-x: auto; scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button {
+    flex: 1; background: none; border: none; color: rgba(255,255,255,0.55);
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 8px; cursor: pointer;
+    border-bottom: 3px solid transparent; white-space: nowrap;
+  }
+  nav.tabs button.active { color: var(--gold); border-bottom-color: var(--gold); }
+  nav.tabs button:active { transform: scale(0.97); }
+
+  main { flex: 1; padding: 20px; }
+
+  .panel {
+    background: rgba(9,30,20,0.55); border: 1px solid var(--pitch-line); border-radius: 16px;
+    padding: 18px; margin-bottom: 16px; backdrop-filter: blur(2px);
+  }
+  .panel h2 {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 15px; text-transform: uppercase;
+    letter-spacing: 2px; color: var(--gold); margin-bottom: 12px; font-weight: 700;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .panel h2 .sub { font-size: 12px; letter-spacing: 1px; color: rgba(255,255,255,0.5); text-align: right; }
+
+  .statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; }
+  .stat { background: rgba(0,0,0,0.25); border-radius: 12px; padding: 12px 6px; }
+  .stat .num { font-family: 'Anton', sans-serif; font-size: 30px; line-height: 1; color: var(--gold); }
+  .stat .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.6); margin-top: 5px; }
+
+  .kickoff {
+    width: 100%; font-family: 'Anton', sans-serif; font-size: 26px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--ink);
+    background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+    border: none; border-radius: 16px; padding: 20px; cursor: pointer;
+    box-shadow: 0 5px 0 #a97c05, 0 8px 18px rgba(0,0,0,0.4); transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .kickoff.intl { background: linear-gradient(180deg,#5cb8ff,#1f7fd0); box-shadow: 0 5px 0 #155a94, 0 8px 18px rgba(0,0,0,0.4); color: #041a2e; }
+  .kickoff.cup  { background: linear-gradient(180deg,#c79bff,#8b3ffb); box-shadow: 0 5px 0 #5a1fb0, 0 8px 18px rgba(0,0,0,0.4); color: #f8faf5; }
+  .kickoff:active { transform: translateY(4px); box-shadow: 0 1px 0 #a97c05, 0 3px 10px rgba(0,0,0,0.4); }
+  .kickoff.intl:active { box-shadow: 0 1px 0 #155a94, 0 3px 10px rgba(0,0,0,0.4); }
+  .kickoff.cup:active  { box-shadow: 0 1px 0 #5a1fb0, 0 3px 10px rgba(0,0,0,0.4); }
+  .kickoff small { display: block; font-family: 'Barlow', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 1px; opacity: 0.8; margin-top: 2px; text-transform: uppercase; }
+
+  .next-opp { text-align: center; font-size: 13px; color: rgba(255,255,255,0.7); margin-top: 12px; }
+  .next-opp b { color: var(--chalk); }
+  .next-opp.intl b { color: var(--intl); }
+  .next-opp.cup b { color: var(--cup); }
+
+  .fixture-badge {
+    display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; padding: 3px 9px; border-radius: 20px; margin-bottom: 10px;
+  }
+  .fixture-badge.league { background: rgba(247,201,72,0.2); color: var(--gold); }
+  .fixture-badge.cup    { background: rgba(176,123,255,0.25); color: var(--cup); }
+  .fixture-badge.intl   { background: rgba(53,167,255,0.2); color: var(--intl); }
+
+  .scoreboard {
+    display: flex; align-items: center; justify-content: space-between; background: var(--ink);
+    border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; border: 1px solid var(--pitch-line);
+  }
+  .sb-team {
+    flex: 1; text-align: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 15px; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .sb-team.mine { color: var(--gold); }
+  .sb-team.mine.intl { color: var(--intl); }
+  .sb-score { font-family: 'Anton', sans-serif; font-size: 40px; padding: 0 14px; min-width: 96px; text-align: center; }
+  .sb-clock { text-align: center; font-family: 'Barlow Condensed', sans-serif; color: var(--gold); letter-spacing: 2px; font-size: 14px; margin-bottom: 14px; }
+
+  .commentary { min-height: 200px; display: flex; flex-direction: column; gap: 10px; }
+  .line {
+    background: rgba(0,0,0,0.28); border-left: 3px solid var(--pitch-line); padding: 10px 12px;
+    border-radius: 0 10px 10px 0; font-size: 15px; line-height: 1.4; animation: slideIn 0.35s ease;
+  }
+  .line.goal { border-left-color: var(--gold); background: rgba(247,201,72,0.14); font-weight: 600; }
+  .line.goal .big { display: block; font-family: 'Anton', sans-serif; font-size: 22px; color: var(--gold); letter-spacing: 1px; margin-bottom: 2px; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .fulltime { text-align: center; padding: 8px 0 4px; }
+  .fulltime .verdict { font-family: 'Anton', sans-serif; font-size: 32px; color: var(--gold); letter-spacing: 1px; line-height: 1.05; margin-bottom: 6px; }
+  .fulltime .sub { font-size: 14px; color: rgba(255,255,255,0.75); margin-bottom: 10px; }
+  .fulltime .saved-tag { font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  .fulltime .saved-tag b { color: var(--gold); }
+
+  .btn-row { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; font-size: 16px; padding: 14px; border-radius: 12px;
+    border: 1px solid var(--pitch-line); cursor: pointer; background: rgba(0,0,0,0.3); color: var(--chalk);
+  }
+  .btn.primary { background: linear-gradient(180deg, var(--gold), var(--gold-deep)); color: var(--ink); border: none; }
+  .btn:active { transform: scale(0.97); }
+
+  table.league { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.league th {
+    text-align: right; font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 6px 4px; border-bottom: 1px solid var(--pitch-line); font-size: 11px;
+  }
+  table.league th.club-col, table.league td.club-col { text-align: left; }
+  table.league td { padding: 8px 4px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  table.league tr.me td { background: rgba(247,201,72,0.12); font-weight: 700; }
+  table.league tr.me td.club-col { color: var(--gold); }
+  table.league td.pos { color: rgba(255,255,255,0.45); width: 22px; }
+  table.league td.pts { color: var(--gold); font-weight: 700; }
+  .club-col .cc { display: flex; align-items: center; gap: 8px; }
+  .club-col .dot { width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; display: grid; place-items: center; font-size: 9px; font-family: 'Anton', sans-serif; color: var(--ink); }
+  .promo-note { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 12px; text-align: center; line-height: 1.5; }
+  .promo-note b { color: var(--gold); }
+
+  .scorer { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .scorer .rank { width: 20px; font-family: 'Anton', sans-serif; color: rgba(255,255,255,0.4); font-size: 14px; }
+  .scorer .sc-name { width: 96px; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .scorer.me .sc-name { color: var(--gold); }
+  .scorer .bar-wrap { flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; height: 20px; overflow: hidden; }
+  .scorer .bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.5s ease; min-width: 2px; }
+  .scorer.me .bar { background: linear-gradient(90deg, #d99e0b, #fff0b8); }
+  .scorer .sc-num { width: 26px; text-align: right; font-family: 'Anton', sans-serif; font-size: 16px; color: var(--gold); }
+
+  .cup-stage { margin-bottom: 14px; }
+  .cup-stage .stage-name { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; color: var(--cup); margin-bottom: 8px; }
+  .cup-stage.intl .stage-name { color: var(--intl); }
+  .cup-match {
+    display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.25);
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 14px;
+  }
+  .cup-match.mine { border: 1px solid rgba(176,123,255,0.5); }
+  .cup-match.mine.intl { border-color: rgba(53,167,255,0.5); }
+  .cup-match .cm-teams { display: flex; flex-direction: column; gap: 2px; }
+  .cup-match .cm-score { font-family: 'Anton', sans-serif; color: var(--gold); }
+  .cup-match .win { color: var(--gold); }
+  .cup-match .lose { color: rgba(255,255,255,0.4); }
+
+  .offer {
+    background: rgba(0,0,0,0.28); border: 1px solid var(--pitch-line); border-radius: 12px;
+    padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+  }
+  .offer:active { transform: scale(0.99); }
+  .offer .mini-crest { width: 40px; height: 40px; border-radius: 8px; display: grid; place-items: center; font-family: 'Anton', sans-serif; font-size: 18px; color: var(--ink); flex-shrink: 0; }
+  .offer-info { flex: 1; }
+  .offer-info .oname { font-weight: 700; font-size: 16px; }
+  .offer-info .otier { font-size: 12px; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
+  .offer .arrow { color: var(--gold); font-size: 20px; }
+  .callup { background: linear-gradient(135deg, rgba(53,167,255,0.2), rgba(31,127,208,0.1)); border: 1px solid rgba(53,167,255,0.5); }
+  .callup .mini-crest { color: #041a2e; }
+  .callup .otier { color: var(--intl); }
+  .callup .arrow { color: var(--intl); }
+
+  .empty-note { color: rgba(255,255,255,0.5); font-size: 14px; text-align: center; padding: 12px 0; line-height: 1.5; }
+
+  /* History */
+  .history-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; text-align: center; margin-bottom: 4px; }
+  .history-season {
+    background: rgba(0,0,0,0.25); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+    border-left: 3px solid var(--pitch-line);
+  }
+  .history-season.trophy { border-left-color: var(--gold); }
+  .history-season .hs-head {
+    display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;
+  }
+  .history-season .hs-season { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 15px; }
+  .history-season .hs-tier { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .history-season .hs-line { font-size: 13px; color: rgba(255,255,255,0.8); line-height: 1.5; }
+  .history-season .hs-line .medal { color: var(--gold); font-weight: 700; }
+  .history-season .hs-line .icap { color: var(--intl); font-weight: 700; }
+
+  .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
+  .modal-back.open { display: flex; }
+  .modal {
+    background: var(--terrace); width: 100%; max-width: 640px; border-radius: 20px 20px 0 0;
+    border-top: 3px solid var(--gold); padding: 22px 20px 30px; max-height: 90vh; overflow-y: auto; animation: rise 0.25s ease;
+  }
+  @keyframes rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal h3 { font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gold); font-size: 20px; margin-bottom: 4px; }
+  .modal .modal-hint { font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 16px; line-height: 1.5; }
+
+  label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.6); margin: 14px 0 6px; }
+  input[type="text"] { width: 100%; background: rgba(0,0,0,0.35); border: 1px solid var(--pitch-line); border-radius: 10px; color: var(--chalk); font-family: 'Barlow', sans-serif; font-size: 16px; padding: 12px 14px; }
+  input:focus, .kickoff:focus-visible, .btn:focus-visible, .icon-btn:focus-visible, .save-btn:focus-visible, .wide-btn:focus-visible, nav.tabs button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch { width: 42px; height: 42px; border-radius: 10px; cursor: pointer; border: 3px solid transparent; }
+  .swatch.sel { border-color: var(--chalk); }
+
+  .chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 9px 14px; border-radius: 20px; background: rgba(0,0,0,0.3); border: 1px solid var(--pitch-line); font-size: 14px; cursor: pointer; font-weight: 600; }
+  .chip.sel { background: var(--gold); color: var(--ink); border-color: var(--gold-deep); }
+
+  .save-btn { width: 100%; margin-top: 22px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 18px; padding: 15px; border-radius: 12px; border: none; background: linear-gradient(180deg, var(--gold), var(--gold-deep)); color: var(--ink); cursor: pointer; }
+
+  .slot { background: rgba(0,0,0,0.28); border: 1px solid var(--pitch-line); border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; align-items: center; gap: 12px; }
+  .slot.current { border-color: var(--gold); background: rgba(247,201,72,0.1); }
+  .slot .mini-crest { width: 42px; height: 42px; border-radius: 8px; display: grid; place-items: center; font-family: 'Anton', sans-serif; font-size: 18px; color: var(--ink); flex-shrink: 0; }
+  .slot-info { flex: 1; min-width: 0; }
+  .slot-info .sname { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-info .sdesc { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+  .slot-info .scur { color: var(--gold); font-weight: 600; }
+  .slot-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .slot-actions button { background: rgba(255,255,255,0.08); border: 1px solid var(--pitch-line); color: var(--chalk); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .slot-actions button.load { background: var(--gold); color: var(--ink); border: none; }
+  .slot-actions button.del { color: var(--danger); }
+  .slot-actions button:active { transform: scale(0.95); }
+
+  .divider { border: none; border-top: 1px solid var(--pitch-line); margin: 20px 0 16px; }
+  .secondary-actions { display: flex; flex-direction: column; gap: 10px; }
+  .wide-btn { width: 100%; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 15px; padding: 13px; border-radius: 12px; border: 1px solid var(--pitch-line); background: rgba(0,0,0,0.3); color: var(--chalk); cursor: pointer; }
+  .wide-btn.new { background: rgba(21,153,71,0.25); border-color: #159947; }
+  .wide-btn:active { transform: scale(0.98); }
+
+  .grounding { font-size: 12px; color: rgba(255,255,255,0.55); text-align: center; padding: 16px 24px 24px; line-height: 1.5; }
+  .grounding b { color: rgba(255,255,255,0.8); }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--ink); border: 1px solid var(--gold); color: var(--chalk); padding: 12px 20px; border-radius: 30px; font-weight: 600; font-size: 14px; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; max-width: 90%; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="crest" id="crest">RV</div>
+    <div class="club-meta">
+      <div class="club-name" id="clubName">Riverside Athletic</div>
+      <div class="club-tier" id="clubTier">Non-League</div>
+    </div>
+    <div class="top-btns">
+      <button class="icon-btn" id="openSaves" aria-label="Saved careers">💾</button>
+      <button class="icon-btn" id="openSettings" aria-label="Customise player">⚙</button>
+    </div>
+  </header>
+
+  <div class="ladder" id="ladder"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="play" class="active">Play</button>
+    <button data-tab="table">Table</button>
+    <button data-tab="scorers">Scorers</button>
+    <button data-tab="cup" id="cupTab">Cup</button>
+    <button data-tab="intl" id="intlTab">Nation</button>
+    <button data-tab="history">History</button>
+  </nav>
+
+  <main>
+    <!-- PLAY TAB -->
+    <section id="tab-play">
+      <div class="panel">
+        <h2><span id="playerHeadingText">Your Season</span> <span class="sub" id="seasonLabel"></span></h2>
+        <div class="statgrid">
+          <div class="stat"><div class="num" id="stGoals">0</div><div class="lbl">Season Goals</div></div>
+          <div class="stat"><div class="num" id="stApps">0</div><div class="lbl">Games</div></div>
+          <div class="stat"><div class="num" id="stPts">0</div><div class="lbl">Points</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div id="fixtureBadge" class="fixture-badge league">League Match</div>
+        <button class="kickoff" id="playBtn">
+          Kick Off
+          <small id="playSub">Play your next match</small>
+        </button>
+        <div class="next-opp" id="nextOppWrap">Next up: <b id="oppName">local rivals</b></div>
+      </div>
+
+      <div class="panel" id="callupPanel">
+        <h2>National Team</h2>
+        <div id="callupList"></div>
+      </div>
+    </section>
+
+    <!-- TABLE TAB -->
+    <section id="tab-table" class="hidden">
+      <div class="panel">
+        <h2 id="tableTitle">League Table</h2>
+        <table class="league">
+          <thead><tr><th class="pos">#</th><th class="club-col">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div class="promo-note" id="promoNote"></div>
+      </div>
+    </section>
+
+    <!-- SCORERS TAB -->
+    <section id="tab-scorers" class="hidden">
+      <div class="panel">
+        <h2 id="scorersTitle">Top Scorers <span class="sub">this season</span></h2>
+        <div id="scorersList"></div>
+      </div>
+    </section>
+
+    <!-- CUP TAB -->
+    <section id="tab-cup" class="hidden">
+      <div class="panel"><h2>Champions League</h2><div id="cupContent"></div></div>
+    </section>
+
+    <!-- NATION TAB -->
+    <section id="tab-intl" class="hidden">
+      <div class="panel"><h2 id="intlTitle">National Team</h2><div id="intlContent"></div></div>
+    </section>
+
+    <!-- HISTORY TAB -->
+    <section id="tab-history" class="hidden">
+      <div class="panel">
+        <h2>Career Honours</h2>
+        <div class="history-summary">
+          <div class="stat"><div class="num" id="hsGoals">0</div><div class="lbl">Career Goals</div></div>
+          <div class="stat"><div class="num" id="hsTrophies">0</div><div class="lbl">Trophies</div></div>
+          <div class="stat"><div class="num" id="hsCaps">0</div><div class="lbl">Intl Caps</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Season by Season</h2>
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+    <!-- MATCH VIEW -->
+    <section id="matchView" class="hidden">
+      <div id="matchBadge" class="fixture-badge league">League Match</div>
+      <div class="scoreboard">
+        <div class="sb-team mine" id="mbHome"></div>
+        <div class="sb-score"><span id="mbHomeScore">0</span>–<span id="mbAwayScore">0</span></div>
+        <div class="sb-team" id="mbAway"></div>
+      </div>
+      <div class="sb-clock" id="mbClock">KICK OFF</div>
+      <div class="panel"><div class="commentary" id="commentary"></div></div>
+      <div id="ftControls" class="hidden">
+        <div class="panel fulltime">
+          <div class="verdict" id="ftVerdict">FULL TIME</div>
+          <div class="sub" id="ftSub"></div>
+          <div class="saved-tag" id="ftSaved">Progress saved to <b id="ftSlotName">career</b></div>
+          <div class="btn-row"><button class="btn primary" id="backHome">Back to club</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="grounding" id="grounding">
+    Great game today. <b>Time to head off the pitch</b> — tell someone about your best goal, or go do something you enjoy in the real world too.
+  </footer>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-back" id="settingsModal">
+  <div class="modal">
+    <h3>Customise your player</h3>
+    <div class="modal-hint">Changes are saved to your current career.</div>
+    <label for="pName">Your player name</label>
+    <input type="text" id="pName" maxlength="20" placeholder="e.g. Jordan Rivers">
+    <label for="cName">Club name</label>
+    <input type="text" id="cName" maxlength="24" placeholder="e.g. Riverside Athletic">
+    <label>Position</label>
+    <div class="chip-row" id="posRow"></div>
+    <label>Nationality (your national team)</label>
+    <div class="chip-row" id="natRow"></div>
+    <label>Kit colour</label>
+    <div class="swatches" id="swatches"></div>
+    <button class="save-btn" id="saveSettings">Save</button>
+  </div>
+</div>
+
+<!-- SAVES MODAL -->
+<div class="modal-back" id="savesModal">
+  <div class="modal">
+    <h3>Saved careers</h3>
+    <div class="modal-hint">Every career saves on its own. Start a new one any time — your others stay safe.</div>
+    <div id="slotsList"></div>
+    <hr class="divider">
+    <div class="secondary-actions">
+      <button class="wide-btn new" id="newCareerBtn">＋ Start a new career</button>
+      <button class="wide-btn" id="exportBtn">⬇ Back up all careers to a file</button>
+      <button class="wide-btn" id="importBtn">⬆ Restore careers from a file</button>
+      <input type="file" id="importFile" accept="application/json,.json" class="hidden">
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ================= DATA =================
+  const TIERS = ["Non-League","League Two","League One","Championship","Premier League"];
+  const CL_TIER_INDEX = 3;
+  const INTL_TIER_INDEX = 3;
+
+  const DIVISION_CLUBS = {
+    "Non-League":     ["Marsh Rovers","Oakdale Town","Pit Lane FC","Colliery United","Brook End","Hilltop Rangers","Ferry Road"],
+    "League Two":     ["Harborough City","Fenwick Rangers","Stanton Albion","Kestrel Park","Dovedale","Milbrook Town","Cape Athletic"],
+    "League One":     ["Bridgewater FC","Aldermoor Town","Vale Wanderers","Redcliffe United","Portway","Grey Lane","Sutton Cross"],
+    "Championship":   ["Northgate City","Ashford Rangers","Sandbourne","Elmswood Town","Carrow Vale","Whitmore","Kingsford"],
+    "Premier League": ["Crownfield","St. Auburn","Kingsmere United","Vanguard FC","Ravensbourne","Ashcombe City","Meridian"]
+  };
+  const EURO_CLUBS = ["Real Montara","Inter Vellano","Bayern Sturmfeld","Olympique Vireux","Ajax Merwede","FC Portalegre","Dynamo Vösk","Sporting Návoa","Atlético Rivera","Galatasport","Benfica Serra","Milan Verano","Sevilla Prado","Roma Aventino","Porto Aldeia"];
+
+  const EUROPEAN_NATIONS = ["England","Scotland","Wales","Ireland","France","Spain","Germany","Italy","Portugal","Netherlands","Belgium","Croatia"];
+  const OTHER_NATIONS = ["Brazil","Argentina","Uruguay","Colombia","Mexico","USA","Japan","Nigeria","Senegal","Morocco"];
+  const NATIONS = [...EUROPEAN_NATIONS, ...OTHER_NATIONS];
+
+  const POSITIONS = ["Striker","Winger","Midfielder","Playmaker"];
+  const COLOURS = ["#d7263d","#1f6feb","#f7c948","#159947","#8b3ffb","#ff7a1a","#111827","#e84f97"];
+
+  const POS_GOAL_WORDS = {
+    "Striker": ["a clinical finish","a poacher's tap-in","a thumping header","a cool one-on-one"],
+    "Winger": ["a solo run and finish","a curler into the top corner","a cut-inside strike"],
+    "Midfielder": ["a screamer from distance","a driving run and finish","a first-time volley"],
+    "Playmaker": ["a delicate chip","a free-kick over the wall","a one-two and slot home"]
+  };
+  const CROWD = ["The crowd is on their feet!","Scenes of pure joy in the stands.","They're singing your name!","The manager punches the air.","What a moment for the fans."];
+  const SCORER_NAMES = ["A. Silva","M. Kovač","J. Bennett","R. Osei","L. Moreau","T. Andersson","D. Rossi","K. Nwosu","P. Vidal","S. Haaland"];
+
+  const STORAGE_KEY = "dreamCareerSaves_v3";
+
+  // ================= SAVE SYSTEM =================
+  let saves = { slots: {}, order: [], currentId: null };
+  let state = null;
+
+  function isEuropean(nat){ return EUROPEAN_NATIONS.includes(nat); }
+  function continentalName(nat){ return isEuropean(nat) ? "European Championship" : "Copa América"; }
+  function continentalShort(nat){ return isEuropean(nat) ? "Euros" : "Copa"; }
+
+  function newCareer(name) {
+    const c = {
+      id: "c" + Date.now() + Math.floor(Math.random()*1000),
+      saveName: name || "New Career",
+      playerName: "You",
+      clubName: "Riverside Athletic",
+      colour: "#d7263d",
+      position: "Striker",
+      nationality: "England",
+      tierIndex: 0,
+      season: 1,
+      careerGoals: 0,
+      careerTrophies: 0,
+      // season state
+      table: null, fixtures: null, fixturePtr: 0, scorers: null,
+      // international
+      calledUp: false, intlSeason: 0, intlGoals: 0, intlCaps: 0,
+      intlPending: false,            // a friendly queued
+      intlTournament: null,          // active tournament object
+      // cup
+      cup: null, cupNextQueued: false,
+      // history
+      history: [],                   // array of season records
+      seasonLog: null,               // accumulator for current season
+      created: Date.now()
+    };
+    startSeason(c);
+    return c;
+  }
+
+  function persist(){ try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saves)); return true; } catch(e){ return false; } }
+  function loadFromStorage(){ try { const raw=localStorage.getItem(STORAGE_KEY); if(raw){ const p=JSON.parse(raw); if(p&&p.slots&&p.order) return p; } } catch(e){} return null; }
+  function bootSaves(){
+    const loaded=loadFromStorage();
+    if (loaded && loaded.order.length){ saves=loaded; if(!saves.currentId||!saves.slots[saves.currentId]) saves.currentId=saves.order[0]; }
+    else { const first=newCareer("Career 1"); saves={slots:{[first.id]:first},order:[first.id],currentId:first.id}; persist(); }
+    state=saves.slots[saves.currentId]; ensureSeason(state);
+  }
+
+  // ================= HELPERS =================
+  const $ = id => document.getElementById(id);
+  const tierName = () => TIERS[state.tierIndex];
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  const shuffle = arr => { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+  function initials(name){ const p=String(name).trim().split(/\s+/).filter(Boolean); if(!p.length) return "FC"; if(p.length===1) return p[0].slice(0,2).toUpperCase(); return (p[0][0]+p[1][0]).toUpperCase(); }
+  function isLight(hex){ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return (0.299*r+0.587*g+0.114*b)>150; }
+  function textOn(hex){ return isLight(hex)?"#0a1a12":"#f8faf5"; }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  let toastTimer=null;
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2400); }
+  function clubColour(name){ let h=0; for(let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))>>>0; return COLOURS[h%COLOURS.length]; }
+
+  // ================= SEASON SETUP =================
+  function row(){ return {p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0}; }
+  function startSeason(c){
+    const rivals=DIVISION_CLUBS[TIERS[c.tierIndex]];
+    c.table={}; c.table[c.clubName]=row(); rivals.forEach(r=>c.table[r]=row());
+    const fx=[]; rivals.forEach(r=>{ fx.push({opp:r,home:true,played:false}); fx.push({opp:r,home:false,played:false}); });
+    c.fixtures=shuffle(fx); c.fixturePtr=0;
+    c.scorers={"__me":0}; shuffle(SCORER_NAMES).slice(0,6).forEach(n=>c.scorers[n]=0);
+    // fresh season log
+    c.seasonLog = { season:c.season, tier:TIERS[c.tierIndex], leagueGoals:0, promoted:false, champions:false, clTrophy:false, intlTrophy:null, intlComp:null };
+    // decide this season's international tournament (only matters once called up)
+    if (c.calledUp) setupIntlSeason(c);
+  }
+  function ensureSeason(c){ if(!c.table||!c.fixtures) startSeason(c); if(!c.history) c.history=[]; if(!c.seasonLog) c.seasonLog={season:c.season,tier:TIERS[c.tierIndex],leagueGoals:0,promoted:false,champions:false,clTrophy:false,intlTrophy:null,intlComp:null}; }
+  function currentFixture(){ return state.fixturePtr>=state.fixtures.length ? null : state.fixtures[state.fixturePtr]; }
+
+  // ================= INTERNATIONAL TOURNAMENT CYCLE =================
+  // intlSeason counts international seasons since first call-up (1-based once set).
+  // Tournament seasons: intlSeason % 3 === 1  (i.e. 1,4,7,...). Between: friendlies.
+  // Tournament type alternates: WorldCup (idx even) / continental (idx odd).
+  function isTournamentSeason(c){ return c.calledUp && c.intlSeason>0 && (c.intlSeason-1)%3===0; }
+  function tournamentIndex(c){ return Math.floor((c.intlSeason-1)/3); }
+  function tournamentTypeFor(c){ return (tournamentIndex(c)%2===0) ? "World Cup" : continentalName(c.nationality); }
+
+  function setupIntlSeason(c){
+    // called at season start once called up
+    c.intlSeason = (c.intlSeason||0) + 1;
+    c.intlTournament = null;
+    c.intlPending = false;
+    if (isTournamentSeason(c)){
+      c.intlTournament = makeTournament(c, tournamentTypeFor(c));
+      c.seasonLog.intlComp = c.intlTournament.name;
+    } else {
+      // off-season: queue one friendly at some point
+      c._friendlyQueuedThisSeason = false;
+    }
+  }
+
+  function eligibleNations(c){ return NATIONS.filter(n=>n!==c.nationality); }
+
+  function makeTournament(c, typeName){
+    // group of 3 opponents, then QF, SF, Final — all vs other nations
+    const pool = shuffle(eligibleNations(c));
+    const group = pool.slice(0,3);
+    return {
+      name: typeName,
+      stage: "group",
+      groupOpp: group, groupPtr: 0, groupResults: [],
+      bracket: { qf:null, sf:null, final:null },
+      poolRest: pool.slice(3),
+      done:false, won:false, started:false
+    };
+  }
+
+  function stageLabel(s){ return {group:"Group Stage",qf:"Quarter-Final",sf:"Semi-Final",final:"Final"}[s]||s; }
+
+  function tournamentNextOpp(t){
+    if (!t) return null;
+    if (t.stage==="group") return t.groupOpp[t.groupPtr];
+    const ko = t.bracket[t.stage] || (t.bracket[t.stage]=makeKO(t));
+    return ko.opp;
+  }
+  function makeKO(t){ return { opp: t.poolRest.length? t.poolRest.pop() : pick(NATIONS), ms:null, os:null }; }
+
+  function recordTournamentResult(t, ms, os){
+    if (t.stage==="group"){
+      t.groupResults.push({opp:t.groupOpp[t.groupPtr], ms, os}); t.groupPtr++;
+      if (t.groupPtr>=t.groupOpp.length) t.stage="qf";
+    } else if (t.stage==="qf"){ t.bracket.qf.ms=ms; t.bracket.qf.os=os; t.stage="sf"; }
+    else if (t.stage==="sf"){ t.bracket.sf.ms=ms; t.bracket.sf.os=os; t.stage="final"; }
+    else if (t.stage==="final"){ t.bracket.final.ms=ms; t.bracket.final.os=os; t.done=true; t.won=true; }
+  }
+
+  // ================= CHAMPIONS LEAGUE CUP =================
+  function eligibleForCup(){ return state.tierIndex>=CL_TIER_INDEX; }
+  function startCup(){
+    const pool=shuffle(EURO_CLUBS); const group=pool.slice(0,3);
+    state.cup={ stage:"group", groupOpp:group, groupPtr:0, groupResults:[], bracket:{qf:null,sf:null,final:null}, poolRest:pool.slice(3), done:false, won:false };
+    state.cupNextQueued=true;
+  }
+  function nextCupMatch(){
+    const cup=state.cup; if(!cup) return null;
+    if (cup.stage==="group") return { opp:cup.groupOpp[cup.groupPtr] };
+    const ko = cup.bracket[cup.stage] || (cup.bracket[cup.stage]=makeKOc(cup));
+    return { opp: ko.opp };
+  }
+  function makeKOc(cup){ return { opp: cup.poolRest.length? cup.poolRest.pop() : pick(EURO_CLUBS), ms:null, os:null }; }
+  function recordCupResult(ms,os){
+    const cup=state.cup;
+    if (cup.stage==="group"){ cup.groupResults.push({opp:cup.groupOpp[cup.groupPtr],ms,os}); cup.groupPtr++; if(cup.groupPtr>=cup.groupOpp.length) cup.stage="qf"; }
+    else if (cup.stage==="qf"){ cup.bracket.qf.ms=ms; cup.bracket.qf.os=os; cup.stage="sf"; }
+    else if (cup.stage==="sf"){ cup.bracket.sf.ms=ms; cup.bracket.sf.os=os; cup.stage="final"; }
+    else if (cup.stage==="final"){ cup.bracket.final.ms=ms; cup.bracket.final.os=os; cup.done=true; cup.won=true; }
+    state.cupNextQueued=false;
+  }
+  function maybeQueueCup(){
+    if (!eligibleForCup()) return;
+    if (!state.cup){ const me=state.table[state.clubName]; if(me&&me.p>=2) startCup(); return; }
+    if (state.cup.done) return;
+    if (!state.cupNextQueued){ const me=state.table[state.clubName]; if(me&&me.p%3===0) state.cupNextQueued=true; }
+  }
+
+  // ================= WHAT'S NEXT =================
+  // Priority: active tournament match > queued friendly > cup match > league match
+  function decideNext(){
+    if (state.intlTournament && !state.intlTournament.done) return "tournament";
+    if (state.intlPending) return "friendly";
+    if (state.cup && !state.cup.done && state.cupNextQueued) return "cup";
+    return "league";
+  }
+
+  // ================= RENDER: HEADER/LADDER =================
+  function renderHeader(){
+    $("clubName").textContent=state.clubName;
+    $("clubTier").textContent=tierName();
+    const c=$("crest"); c.textContent=initials(state.clubName); c.style.background=state.colour; c.style.color=textOn(state.colour);
+  }
+  function renderLadder(){
+    const l=$("ladder"); l.innerHTML="";
+    TIERS.forEach((t,i)=>{ const el=document.createElement("div"); el.className="rung"+(i<state.tierIndex?" done":"")+(i===state.tierIndex?" active":""); el.textContent=t; l.appendChild(el); });
+    if (state.calledUp){ const el=document.createElement("div"); el.className="rung"; el.style.color="var(--intl)"; el.style.background="rgba(53,167,255,0.15)"; el.textContent="⚑ "+state.nationality; l.appendChild(el); }
+    const active=l.querySelector(".active"); if(active) active.scrollIntoView({inline:"center",block:"nearest"});
+  }
+
+  // ================= RENDER: PLAY TAB =================
+  function renderPlayTab(){
+    renderHeader(); renderLadder();
+    const me=state.table[state.clubName]||{pts:0,p:0};
+    $("playerHeadingText").textContent = state.playerName+" · "+state.position;
+    $("seasonLabel").textContent = "Season "+state.season+" · "+tierName();
+    $("stGoals").textContent = state.scorers["__me"]||0;
+    $("stApps").textContent = me.p||0;
+    $("stPts").textContent = me.pts||0;
+
+    const next=decideNext();
+    state._pendingType=next;
+    const kb=$("playBtn"), badge=$("fixtureBadge"), wrap=$("nextOppWrap");
+    kb.classList.remove("intl","cup"); wrap.classList.remove("intl","cup");
+    const small=kb.querySelector("small");
+
+    if (next==="tournament"){
+      const t=state.intlTournament; const opp=tournamentNextOpp(t);
+      badge.className="fixture-badge intl"; badge.textContent="⚑ "+t.name+" · "+stageLabel(t.stage);
+      kb.classList.add("intl"); small.textContent="Play for "+state.nationality;
+      wrap.classList.add("intl"); wrap.innerHTML=state.nationality+" vs <b>"+opp+"</b>";
+    } else if (next==="friendly"){
+      const opp=friendlyOpp();
+      badge.className="fixture-badge intl"; badge.textContent="⚑ International Friendly";
+      kb.classList.add("intl"); small.textContent="Play for "+state.nationality;
+      wrap.classList.add("intl"); wrap.innerHTML=state.nationality+" vs <b>"+opp+"</b> (friendly)";
+    } else if (next==="cup"){
+      const m=nextCupMatch();
+      badge.className="fixture-badge cup"; badge.textContent="★ Champions League · "+stageLabel(state.cup.stage);
+      kb.classList.add("cup"); small.textContent="Champions League";
+      wrap.classList.add("cup"); wrap.innerHTML="vs <b>"+(m?m.opp:"—")+"</b>";
+    } else {
+      const fx=currentFixture();
+      badge.className="fixture-badge league"; badge.textContent="League Match";
+      small.textContent="Play your next match";
+      if (fx) wrap.innerHTML="Next up: <b>"+fx.opp+"</b> "+(fx.home?"— at home":"— away");
+      else wrap.innerHTML="<b>Season complete!</b> Kick off to start next season.";
+    }
+    renderCallups();
+    refreshTabVisibility();
+  }
+
+  function renderCallups(){
+    const panel=$("callupPanel"), list=$("callupList"); list.innerHTML="";
+    if (!state.calledUp && state.tierIndex>=INTL_TIER_INDEX){
+      panel.classList.remove("hidden");
+      const div=document.createElement("div"); div.className="offer callup";
+      div.innerHTML=`<div class="mini-crest" style="background:#1f7fd0;color:#fff">⚑</div>
+        <div class="offer-info"><div class="oname">${state.nationality} call you up!</div>
+        <div class="otier">Accept your first international cap</div></div><div class="arrow">→</div>`;
+      div.addEventListener("click", acceptCallup); list.appendChild(div);
+    } else if (state.calledUp){
+      panel.classList.remove("hidden");
+      const t=state.intlTournament;
+      let msg = `You play for <b style="color:var(--intl)">${state.nationality}</b> — ${state.intlCaps} caps, ${state.intlGoals} goals.`;
+      if (t && !t.done) msg += `<br><b style="color:var(--intl)">${t.name}</b> is on this season!`;
+      else if (isTournamentSeason(state)) msg += `<br>Tournament season.`;
+      else msg += `<br>Off-season — occasional friendlies between league games.`;
+      const div=document.createElement("div"); div.className="empty-note"; div.innerHTML=msg; list.appendChild(div);
+    } else { panel.classList.add("hidden"); }
+  }
+
+  function acceptCallup(){
+    state.calledUp=true;
+    state.intlSeason=0;
+    setupIntlSeason(state); // becomes intlSeason 1 -> a tournament (World Cup) immediately
+    persist(); renderPlayTab();
+    toast("Called up by "+state.nationality+"!");
+  }
+
+  function friendlyOpp(){
+    if (!state._friendlyOpp){ state._friendlyOpp=pick(eligibleNations(state)); }
+    return state._friendlyOpp;
+  }
+  function maybeQueueFriendly(){
+    if (!state.calledUp) return;
+    if (state.intlTournament && !state.intlTournament.done) return; // tournaments take over
+    if (isTournamentSeason(state)) return;
+    const me=state.table[state.clubName];
+    if (!state.intlPending && me && me.p>0 && me.p%5===0){ state.intlPending=true; state._friendlyOpp=null; }
+  }
+
+  // ================= RENDER: TABLE =================
+  function renderTableTab(){
+    $("tableTitle").textContent=tierName()+" Table";
+    const rows=Object.keys(state.table).map(n=>({name:n,...state.table[n]}));
+    rows.sort((a,b)=> b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || a.name.localeCompare(b.name));
+    const body=$("tableBody"); body.innerHTML="";
+    rows.forEach((r,i)=>{ const tr=document.createElement("tr"); if(r.name===state.clubName) tr.className="me";
+      const col=clubColour(r.name);
+      tr.innerHTML=`<td class="pos">${i+1}</td>
+        <td class="club-col"><div class="cc"><span class="dot" style="background:${col};color:${textOn(col)}">${initials(r.name)}</span>${escapeHtml(r.name)}</div></td>
+        <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
+        <td>${(r.gf-r.ga)>=0?'+':''}${r.gf-r.ga}</td><td class="pts">${r.pts}</td>`;
+      body.appendChild(tr); });
+    const played=(state.table[state.clubName]||{}).p||0, total=state.fixtures.length;
+    $("promoNote").innerHTML = played>=total
+      ? `<b>Season finished — you're promoted!</b> Kick off to begin ${state.tierIndex+1<TIERS.length?TIERS[state.tierIndex+1]:'a new season at the top'}.`
+      : `${total-played} games left this season. Win the league to get promoted.`;
+  }
+
+  // ================= RENDER: SCORERS =================
+  function renderScorersTab(){
+    const entries=Object.keys(state.scorers).map(k=>({key:k,name:k==="__me"?(state.playerName+" (you)"):k,goals:state.scorers[k],me:k==="__me"}));
+    entries.sort((a,b)=> b.goals-a.goals || (a.me?-1:1));
+    const max=Math.max(1,entries[0].goals);
+    const box=$("scorersList"); box.innerHTML="";
+    entries.slice(0,8).forEach((e,i)=>{ const div=document.createElement("div"); div.className="scorer"+(e.me?" me":"");
+      div.innerHTML=`<div class="rank">${i+1}</div><div class="sc-name">${escapeHtml(e.name)}</div>
+        <div class="bar-wrap"><div class="bar" style="width:${Math.round(e.goals/max*100)}%"></div></div>
+        <div class="sc-num">${e.goals}</div>`; box.appendChild(div); });
+    if (state.position!=="Striker"){ const n=document.createElement("div"); n.className="empty-note"; n.style.marginTop="8px"; n.textContent="Tip: the scoring charts shine brightest when you play as a Striker."; box.appendChild(n); }
+  }
+
+  // ================= RENDER: CUP =================
+  function renderCupTab(){
+    const box=$("cupContent");
+    if (!state.cup){ box.innerHTML=`<div class="empty-note">The Champions League opens once you're established in the ${TIERS[CL_TIER_INDEX]} or above. Play a couple of league games to qualify.</div>`; return; }
+    box.innerHTML = bracketHtml(state.cup, state.clubName, false);
+    if (state.cup.done && state.cup.won) box.innerHTML += `<div class="promo-note"><b>🏆 Champions of Europe!</b> A new cup begins next season.</div>`;
+  }
+
+  // ================= RENDER: NATION =================
+  function renderIntlTab(){
+    $("intlTitle").textContent = state.calledUp ? state.nationality : "National Team";
+    const box=$("intlContent");
+    if (!state.calledUp){
+      box.innerHTML=`<div class="empty-note">Reach the ${TIERS[INTL_TIER_INDEX]} to earn your first call-up for <b>${state.nationality}</b>.<br>Then you'll play World Cups and ${continentalShort(state.nationality)} between club games.</div>`;
+      return;
+    }
+    let html=`<div class="history-summary" style="margin-bottom:14px">
+      <div class="stat"><div class="num">${state.intlCaps}</div><div class="lbl">Caps</div></div>
+      <div class="stat"><div class="num">${state.intlGoals}</div><div class="lbl">Intl Goals</div></div>
+      <div class="stat"><div class="num">${countIntlTrophies()}</div><div class="lbl">Intl Trophies</div></div></div>`;
+    const t=state.intlTournament;
+    if (t){
+      html += `<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--intl);font-size:14px;margin:6px 0 10px">${t.name}${t.done?(t.won?' — Won 🏆':''):' — in progress'}</div>`;
+      html += bracketHtml(t, state.nationality, true);
+    } else if (isTournamentSeason(state)){
+      html += `<div class="empty-note">Tournament starting soon.</div>`;
+    } else {
+      const nextT = tournamentTypeForUpcoming();
+      html += `<div class="empty-note">Off-season — friendlies appear between league games.<br>Next tournament: <b style="color:var(--intl)">${nextT}</b>.</div>`;
+    }
+    box.innerHTML=html;
+  }
+  function tournamentTypeForUpcoming(){
+    // find the next tournament type after current intlSeason
+    let s=state.intlSeason;
+    // next tournament season is the next value where (s-1)%3===0 and s>current
+    let ns=s+1; while((ns-1)%3!==0) ns++;
+    const idx=Math.floor((ns-1)/3);
+    return (idx%2===0)?"World Cup":continentalName(state.nationality);
+  }
+  function countIntlTrophies(){ return (state.history||[]).filter(h=>h.intlTrophy).length + ((state.intlTournament&&state.intlTournament.done&&state.intlTournament.won)?1:0); }
+
+  function bracketHtml(t, myName, intl){
+    let html="";
+    html += `<div class="cup-stage ${intl?'intl':''}"><div class="stage-name">Group Stage</div>`;
+    t.groupOpp.forEach((opp,i)=>{ const res=t.groupResults[i];
+      if (res) html += cupMatchRow(myName,opp,res.ms,res.os,true,intl);
+      else html += `<div class="cup-match ${i===t.groupPtr&&t.stage==='group'?'mine':''} ${intl?'intl':''}"><div class="cm-teams"><span>${escapeHtml(myName)}</span><span>${escapeHtml(opp)}</span></div><div class="cm-score">${i===t.groupPtr&&t.stage==='group'?'next':'—'}</div></div>`;
+    });
+    html += `</div>`;
+    ["qf","sf","final"].forEach(stg=>{ const ko=t.bracket[stg]; const reached=stageReached(t.stage,stg);
+      html += `<div class="cup-stage ${intl?'intl':''}"><div class="stage-name">${stageLabel(stg)}</div>`;
+      if (ko && ko.ms!=null) html += cupMatchRow(myName,ko.opp,ko.ms,ko.os,true,intl);
+      else if (reached){ const opp = ko? ko.opp : (t.stage===stg? tournamentNextOpp(t): 'TBD'); html += `<div class="cup-match mine ${intl?'intl':''}"><div class="cm-teams"><span>${escapeHtml(myName)}</span><span>${escapeHtml(opp||'TBD')}</span></div><div class="cm-score">next</div></div>`; }
+      else html += `<div class="cup-match ${intl?'intl':''}"><div class="cm-teams"><span style="color:rgba(255,255,255,0.4)">Winners advance…</span></div><div class="cm-score">—</div></div>`;
+      html += `</div>`;
+    });
+    return html;
+  }
+  function stageReached(cur,target){ const o=["group","qf","sf","final"]; return o.indexOf(cur)>=o.indexOf(target); }
+  function cupMatchRow(a,b,ms,os,mine,intl){ const win=ms>os; return `<div class="cup-match ${mine?'mine':''} ${intl?'intl':''}"><div class="cm-teams"><span class="${win?'win':''}">${escapeHtml(a)}</span><span class="${win?'lose':''}">${escapeHtml(b)}</span></div><div class="cm-score">${ms}–${os}</div></div>`; }
+
+  // ================= RENDER: HISTORY =================
+  function renderHistoryTab(){
+    $("hsGoals").textContent = state.careerGoals||0;
+    $("hsTrophies").textContent = state.careerTrophies||0;
+    $("hsCaps").textContent = state.intlCaps||0;
+    const list=$("historyList"); list.innerHTML="";
+    if (!state.history || !state.history.length){
+      list.innerHTML=`<div class="empty-note">Finished seasons will appear here — leagues won, cups lifted, and international trophies. Play your first full season to start your story.</div>`;
+      return;
+    }
+    [...state.history].reverse().forEach(h=>{
+      const hasTrophy = h.champions || h.clTrophy || h.intlTrophy;
+      const div=document.createElement("div"); div.className="history-season"+(hasTrophy?" trophy":"");
+      let lines=[];
+      lines.push(`<span class="medal">${h.champions?'🏆 '+h.tier+' champions':'Finished '+h.tier}</span>`);
+      if (h.promoted) lines.push(`Promoted to the next division`);
+      lines.push(`${h.leagueGoals} league goals`);
+      if (h.clTrophy) lines.push(`<span class="medal">🏆 Champions League winners</span>`);
+      if (h.intlTrophy) lines.push(`<span class="icap">🏆 ${h.intlTrophy} winners with ${state.nationality}</span>`);
+      else if (h.intlComp) lines.push(`<span class="icap">${h.intlComp} — represented ${state.nationality}</span>`);
+      div.innerHTML=`<div class="hs-head"><span class="hs-season">Season ${h.season}</span><span class="hs-tier">${h.tier}</span></div><div class="hs-line">${lines.join(' · ')}</div>`;
+      list.appendChild(div);
+    });
+  }
+
+  // ================= MATCH ENGINE =================
+  let myScore=0, oppScore=0, timer=null, matchType="league", matchOpp="", matchHome=true;
+
+  function startMatch(){
+    matchType = state._pendingType || decideNext();
+
+    if (matchType==="league"){
+      const fx=currentFixture();
+      if (!fx){ endSeasonAndAdvance(); matchType = state._pendingType = decideNext(); }
+    }
+
+    let myTeamName;
+    if (matchType==="tournament"){
+      const t=state.intlTournament; matchOpp=tournamentNextOpp(t); matchHome=true; myTeamName=state.nationality;
+      $("matchBadge").className="fixture-badge intl"; $("matchBadge").textContent="⚑ "+t.name+" · "+stageLabel(t.stage);
+    } else if (matchType==="friendly"){
+      matchOpp=friendlyOpp(); matchHome=true; myTeamName=state.nationality;
+      $("matchBadge").className="fixture-badge intl"; $("matchBadge").textContent="⚑ Friendly — "+state.nationality;
+    } else if (matchType==="cup"){
+      const m=nextCupMatch(); matchOpp=m?m.opp:pick(EURO_CLUBS); matchHome=true; myTeamName=state.clubName;
+      $("matchBadge").className="fixture-badge cup"; $("matchBadge").textContent="★ "+stageLabel(state.cup.stage);
+    } else {
+      const fx=currentFixture(); matchOpp=fx?fx.opp:pick(DIVISION_CLUBS[tierName()]); matchHome=fx?fx.home:true; myTeamName=state.clubName;
+      $("matchBadge").className="fixture-badge league"; $("matchBadge").textContent="League Match";
+    }
+
+    showOnly("matchView");
+    $("ftControls").classList.add("hidden");
+    $("commentary").innerHTML=""; myScore=0; oppScore=0;
+    updateBoard(); // paint 0-0 immediately so last game's score doesn't linger
+
+    const homeName=matchHome?myTeamName:matchOpp, awayName=matchHome?matchOpp:myTeamName;
+    $("mbHome").textContent=homeName; $("mbAway").textContent=awayName;
+    const intlCls=(matchType==="tournament"||matchType==="friendly")?" intl":"";
+    $("mbHome").className="sb-team"+(matchHome?" mine":"")+(matchHome?intlCls:"");
+    $("mbAway").className="sb-team"+(!matchHome?" mine":"")+(!matchHome?intlCls:"");
+
+    const myGoals=2+Math.floor(Math.random()*3);
+    const theirGoals=Math.floor(Math.random()*Math.min(2,myGoals));
+    let playerGoals=Math.min(1+Math.floor(Math.random()*Math.min(3,myGoals)), myGoals);
+
+    const events=[]; let pgl=playerGoals;
+    for (let i=0;i<myGoals;i++){ const byP=pgl>0&&(Math.random()<0.75||myGoals-i<=pgl); if(byP) pgl--; events.push({type:"myGoal",byPlayer:byP}); }
+    for (let i=0;i<theirGoals;i++) events.push({type:"theirGoal"});
+    events.sort(()=>Math.random()-0.5);
+    let minute=4+Math.floor(Math.random()*6);
+    events.forEach(ev=>{ ev.minute=minute; minute+=8+Math.floor(Math.random()*20); if(minute>89) minute=80+Math.floor(Math.random()*10); });
+    events.sort((a,b)=>a.minute-b.minute);
+    state._matchPlan={myTeamName};
+
+    let idx=0; setClock("KICK OFF");
+    addLine("The whistle blows. "+myTeamName+" get us underway against "+matchOpp+".");
+    timer=setInterval(()=>{
+      if (idx>=events.length){ clearInterval(timer); setTimeout(fullTime,900); return; }
+      const ev=events[idx++]; setClock(ev.minute+"'");
+      if (ev.type==="myGoal"){ myScore++; updateBoard(); if(ev.byPlayer) addGoalLine(ev.minute); else addLine(`${ev.minute}' — GOAL for ${myTeamName}! A teammate finishes a lovely move.`); }
+      else { oppScore++; updateBoard(); addLine(`${ev.minute}' — ${oppGoalText(myTeamName)}`); }
+    },1400);
+  }
+
+  function oppGoalText(myTeamName){
+    // Called right after oppScore has been incremented. Describe the goal
+    // relative to the current scoreline so it never wrongly says "pull one back".
+    if (oppScore === 1 && myScore === 0){
+      return `${matchOpp} take a surprise early lead, but there's a long way to go.`;
+    }
+    if (oppScore === myScore){
+      return `${matchOpp} draw level for now — game on.`;
+    }
+    if (oppScore < myScore){
+      return `${matchOpp} pull one back, but ${myTeamName} still look comfortable.`;
+    }
+    return `${matchOpp} edge in front, but ${myTeamName} aren't done yet.`;
+  }
+  function addGoalLine(minute){ const how=pick(POS_GOAL_WORDS[state.position]||POS_GOAL_WORDS["Striker"]); const d=document.createElement("div"); d.className="line goal"; d.innerHTML=`<span class="big">⚽ GOAL — ${escapeHtml(state.playerName)}!</span>${minute}' — ${cap(how)}. ${pick(CROWD)}`; $("commentary").appendChild(d); scrollComm(); }
+  function addLine(t){ const d=document.createElement("div"); d.className="line"; d.textContent=t; $("commentary").appendChild(d); scrollComm(); }
+  function scrollComm(){ const c=$("commentary"); c.scrollTop=c.scrollHeight; window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); }
+  function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+  function setClock(t){ $("mbClock").textContent=t; }
+  function updateBoard(){
+    // Home/away slots follow matchHome. My team's tally is myScore; when I'm the
+    // away side, my score belongs in the away slot and the opponent's in the home slot.
+    const homeScore = matchHome ? myScore : oppScore;
+    const awayScore = matchHome ? oppScore : myScore;
+    $("mbHomeScore").textContent=homeScore; $("mbAwayScore").textContent=awayScore;
+  }
+
+  function fullTime(){
+    setClock("FULL TIME");
+    const plan=state._matchPlan, myTeamName=plan.myTeamName;
+    const pg=$("commentary").querySelectorAll(".line.goal").length;
+    let verdict="", sub="";
+
+    if (matchType==="league"){
+      applyLeagueResult(matchOpp, matchHome, myScore, oppScore);
+      state.scorers["__me"]=(state.scorers["__me"]||0)+pg;
+      state.careerGoals=(state.careerGoals||0)+pg;
+      state.seasonLog.leagueGoals += pg;
+      bumpRivalScorers();
+      state.fixturePtr++;
+      maybeQueueFriendly();
+      maybeQueueCup();
+      const me=state.table[state.clubName];
+      if (me.p>=state.fixtures.length){ verdict=`Champions of the ${tierName()}! 🏆`; sub=`${state.playerName} finishes the season a champion. Kick off to move up.`; }
+      else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=scorerSub(pg); }
+    }
+    else if (matchType==="friendly"){
+      state.intlGoals+=pg; state.intlCaps++; state.careerGoals=(state.careerGoals||0)+pg;
+      state.intlPending=false; state._friendlyOpp=null;
+      verdict=`${state.nationality} win ${myScore}–${oppScore}!`;
+      sub= pg>0 ? `${state.playerName} scores in the friendly. Cap #${state.intlCaps}.` : `A run-out for ${state.nationality}. Cap #${state.intlCaps}.`;
+    }
+    else if (matchType==="tournament"){
+      const t=state.intlTournament;
+      recordTournamentResult(t, myScore, oppScore);
+      state.intlGoals+=pg; state.intlCaps++; state.careerGoals=(state.careerGoals||0)+pg;
+      if (t.done && t.won){
+        state.careerTrophies=(state.careerTrophies||0)+1;
+        state.seasonLog.intlTrophy=t.name;
+        verdict=`${t.name} WINNERS! 🏆`;
+        sub=`${state.playerName} lifts the ${t.name} with ${state.nationality}!`;
+      } else {
+        verdict=`${state.nationality} win ${myScore}–${oppScore}!`;
+        sub=`Into the ${stageLabel(t.stage)}. ${scorerSub(pg)}`;
+      }
+    }
+    else if (matchType==="cup"){
+      recordCupResult(myScore, oppScore);
+      state.scorers["__me"]=(state.scorers["__me"]||0)+pg;
+      state.careerGoals=(state.careerGoals||0)+pg;
+      if (state.cup.done && state.cup.won){
+        state.careerTrophies=(state.careerTrophies||0)+1;
+        state.seasonLog.clTrophy=true;
+        verdict=`Champions of Europe! 🏆`; sub=`${state.playerName} lifts the Champions League with ${myTeamName}.`;
+      } else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=`Into the ${stageLabel(state.cup.stage)}. ${scorerSub(pg)}`; }
+    }
+
+    const ok=persist();
+    $("ftVerdict").textContent=verdict; $("ftSub").textContent=sub;
+    $("ftSlotName").textContent=currentSaveName();
+    $("ftSaved").classList.toggle("hidden",!ok);
+    $("ftControls").classList.remove("hidden");
+  }
+
+  function scorerSub(g){ if(g>1) return `${state.playerName} bags ${g} — unforgettable.`; if(g===1) return `${state.playerName} with the goal that mattered.`; return `A solid team display.`; }
+
+  function applyLeagueResult(opp,home,ms,os){
+    const me=state.table[state.clubName], op=state.table[opp];
+    me.p++; op.p++; me.gf+=ms; me.ga+=os; op.gf+=os; op.ga+=ms;
+    if (ms>os){ me.w++; me.pts+=3; op.l++; } else if (ms<os){ me.l++; op.w++; op.pts+=3; } else { me.d++; me.pts++; op.d++; op.pts++; }
+    simulateOtherFixtures(opp);
+  }
+  function simulateOtherFixtures(excludeOpp){
+    // Proper matchday: the six clubs not involved in the player's game pair up
+    // into three fixtures, so every club advances exactly one game each round
+    // and all eight finish the season on the same number played.
+    const others=shuffle(Object.keys(state.table).filter(n=>n!==state.clubName&&n!==excludeOpp));
+    for (let i=0;i+1<others.length;i+=2){ const a=state.table[others[i]],b=state.table[others[i+1]]; const ga=Math.floor(Math.random()*4),gb=Math.floor(Math.random()*4);
+      a.p++;b.p++;a.gf+=ga;a.ga+=gb;b.gf+=gb;b.ga+=ga; if(ga>gb){a.w++;a.pts+=3;b.l++;}else if(gb>ga){b.w++;b.pts+=3;a.l++;}else{a.d++;a.pts++;b.d++;b.pts++;} }
+  }
+  function bumpRivalScorers(){ const keys=Object.keys(state.scorers).filter(k=>k!=="__me"); const meG=state.scorers["__me"]; keys.forEach(k=>{ if(Math.random()<0.4 && state.scorers[k]<meG-1) state.scorers[k]++; }); }
+
+  function endSeasonAndAdvance(){
+    // finalise season log
+    const me=state.table[state.clubName];
+    state.seasonLog.champions = true; // always tops the league
+    if (state.tierIndex < TIERS.length-1){ state.seasonLog.promoted = true; }
+    if (state.seasonLog.champions) state.careerTrophies=(state.careerTrophies||0)+1;
+    // note: CL / intl trophies were already tallied into careerTrophies when won
+    state.history.push(state.seasonLog);
+
+    // advance
+    if (state.tierIndex < TIERS.length-1){ state.tierIndex++; toast("Promoted to "+TIERS[state.tierIndex]+"!"); }
+    else toast("New season at the top flight!");
+    state.season++;
+    state.cup=null; state.cupNextQueued=false;
+    startSeason(state); // this also advances the international season/tournament if called up
+  }
+
+  function backToClub(){ showOnly("tab-"+currentTab); renderCurrentTab(); window.scrollTo({top:0,behavior:"smooth"}); }
+  function currentSaveName(){ return (saves.slots[saves.currentId]&&saves.slots[saves.currentId].saveName)||"career"; }
+
+  // ================= TABS =================
+  let currentTab="play";
+  function showOnly(sectionId){ ["tab-play","tab-table","tab-scorers","tab-cup","tab-intl","tab-history","matchView"].forEach(id=>$(id).classList.toggle("hidden", id!==sectionId)); }
+  function refreshTabVisibility(){
+    $("cupTab").classList.toggle("hidden", !(eligibleForCup() && state.cup));
+    $("intlTab").classList.toggle("hidden", !state.calledUp);
+  }
+  function switchTab(tab){
+    currentTab=tab;
+    document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+    showOnly("tab-"+tab); renderCurrentTab();
+  }
+  function renderCurrentTab(){
+    if (currentTab==="play") renderPlayTab();
+    else if (currentTab==="table") renderTableTab();
+    else if (currentTab==="scorers") renderScorersTab();
+    else if (currentTab==="cup") renderCupTab();
+    else if (currentTab==="intl") renderIntlTab();
+    else if (currentTab==="history") renderHistoryTab();
+    renderHeader(); renderLadder(); refreshTabVisibility();
+  }
+
+  // ================= SETTINGS =================
+  let tmpPos,tmpNat,tmpColour;
+  function openSettings(){
+    $("pName").value = state.playerName==="You"?"":state.playerName;
+    $("cName").value = state.clubName;
+    buildChips("posRow",POSITIONS,state.position,v=>tmpPos=v); tmpPos=state.position;
+    buildChips("natRow",NATIONS,state.nationality,v=>tmpNat=v); tmpNat=state.nationality;
+    buildSwatches(); $("settingsModal").classList.add("open");
+  }
+  function closeSettings(){ $("settingsModal").classList.remove("open"); }
+  function buildChips(id,items,sel,onPick){ const row=$(id); row.innerHTML=""; items.forEach(it=>{ const chip=document.createElement("div"); chip.className="chip"+(it===sel?" sel":""); chip.textContent=it; chip.addEventListener("click",()=>{ onPick(it); row.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel")); chip.classList.add("sel"); }); row.appendChild(chip); }); }
+  function buildSwatches(){ tmpColour=state.colour; const box=$("swatches"); box.innerHTML=""; COLOURS.forEach(col=>{ const sw=document.createElement("div"); sw.className="swatch"+(col===tmpColour?" sel":""); sw.style.background=col; sw.addEventListener("click",()=>{ tmpColour=col; box.querySelectorAll(".swatch").forEach(s=>s.classList.remove("sel")); sw.classList.add("sel"); }); box.appendChild(sw); }); }
+  function saveSettings(){
+    const pn=$("pName").value.trim(), cn=$("cName").value.trim();
+    const oldClub=state.clubName;
+    state.playerName=pn||"You";
+    if (cn && cn!==oldClub){ if(state.table&&state.table[oldClub]){ state.table[cn]=state.table[oldClub]; delete state.table[oldClub]; } state.clubName=cn; }
+    state.position=tmpPos;
+    if (tmpNat!==state.nationality){
+      state.nationality=tmpNat; state._friendlyOpp=null;
+      // if an international tournament is in progress or queued, rebuild opponents so we never face our own nation
+      if (state.intlTournament && !state.intlTournament.done && !state.intlTournament.groupResults.length && state.intlTournament.stage==="group"){
+        state.intlTournament = makeTournament(state, tournamentTypeFor(state));
+        state.seasonLog.intlComp = state.intlTournament.name;
+      }
+    }
+    state.colour=tmpColour;
+    persist(); closeSettings(); renderCurrentTab(); toast("Saved");
+  }
+
+  // ================= SAVES =================
+  function openSaves(){ renderSlots(); $("savesModal").classList.add("open"); }
+  function closeSaves(){ $("savesModal").classList.remove("open"); }
+  function renderSlots(){
+    const list=$("slotsList"); list.innerHTML="";
+    saves.order.forEach(id=>{ const c=saves.slots[id]; if(!c) return; const isCur=id===saves.currentId;
+      const div=document.createElement("div"); div.className="slot"+(isCur?" current":"");
+      const desc=`${TIERS[c.tierIndex]} · S${c.season} · ${c.careerGoals||0} goals · ${c.careerTrophies||0} trophies`;
+      div.innerHTML=`<div class="mini-crest" style="background:${c.colour};color:${textOn(c.colour)}">${initials(c.clubName)}</div>
+        <div class="slot-info"><div class="sname">${escapeHtml(c.clubName)}${isCur?' <span class="scur">· playing now</span>':''}</div><div class="sdesc">${desc}</div></div>
+        <div class="slot-actions"></div>`;
+      const actions=div.querySelector(".slot-actions");
+      if(!isCur){ const b=document.createElement("button"); b.className="load"; b.textContent="Play"; b.addEventListener("click",()=>switchTo(id)); actions.appendChild(b); }
+      const rb=document.createElement("button"); rb.textContent="Rename"; rb.addEventListener("click",()=>renameSlot(id)); actions.appendChild(rb);
+      if(saves.order.length>1){ const db=document.createElement("button"); db.className="del"; db.textContent="Delete"; db.addEventListener("click",()=>deleteSlot(id)); actions.appendChild(db); }
+      list.appendChild(div);
+    });
+  }
+  function switchTo(id){ if(!saves.slots[id]) return; saves.currentId=id; state=saves.slots[id]; ensureSeason(state); persist(); closeSaves(); switchTab("play"); toast("Now playing: "+state.clubName); }
+  function newCareerFlow(){ const sug="Career "+(saves.order.length+1); const name=prompt("Name this new career (e.g. 'Rovers run'):",sug); if(name===null) return; const c=newCareer(name.trim()||sug); saves.slots[c.id]=c; saves.order.push(c.id); saves.currentId=c.id; state=c; persist(); closeSaves(); switchTab("play"); toast("New career started"); }
+  function renameSlot(id){ const c=saves.slots[id]; if(!c) return; const name=prompt("Rename this career:",c.saveName); if(name===null) return; c.saveName=name.trim()||c.saveName; persist(); renderSlots(); }
+  function deleteSlot(id){ const c=saves.slots[id]; if(!c) return; if(!confirm(`Delete "${c.saveName}" (${c.clubName})? This can't be undone.`)) return; delete saves.slots[id]; saves.order=saves.order.filter(x=>x!==id); if(saves.currentId===id){ saves.currentId=saves.order[0]; state=saves.slots[saves.currentId]; ensureSeason(state); } persist(); renderSlots(); renderCurrentTab(); toast("Career deleted"); }
+
+  // ================= EXPORT / IMPORT =================
+  function exportSaves(){ const data=JSON.stringify(saves,null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); const stamp=new Date().toISOString().slice(0,10); a.href=url; a.download="dream-career-backup-"+stamp+".json"; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1000); toast("Backup file saved"); }
+  function importSaves(file){ const reader=new FileReader(); reader.onload=e=>{ try{ const parsed=JSON.parse(e.target.result); if(!parsed||!parsed.slots||!parsed.order) throw new Error("bad"); let added=0; parsed.order.forEach(id=>{ if(parsed.slots[id]&&!saves.slots[id]){ saves.slots[id]=parsed.slots[id]; saves.order.push(id); added++; } }); if(added===0){ saves=parsed; if(!saves.slots[saves.currentId]) saves.currentId=saves.order[0]; } state=saves.slots[saves.currentId]; ensureSeason(state); persist(); renderSlots(); renderCurrentTab(); toast(added>0?`Restored ${added} career${added>1?'s':''}`:"Careers restored"); }catch(err){ toast("Couldn't read that file"); } }; reader.readAsText(file); }
+
+  // ================= WIRE UP =================
+  $("playBtn").addEventListener("click", startMatch);
+  $("backHome").addEventListener("click", backToClub);
+  $("openSettings").addEventListener("click", openSettings);
+  $("saveSettings").addEventListener("click", saveSettings);
+  $("settingsModal").addEventListener("click", e=>{ if(e.target===$("settingsModal")) closeSettings(); });
+  $("openSaves").addEventListener("click", openSaves);
+  $("savesModal").addEventListener("click", e=>{ if(e.target===$("savesModal")) closeSaves(); });
+  $("newCareerBtn").addEventListener("click", newCareerFlow);
+  $("exportBtn").addEventListener("click", exportSaves);
+  $("importBtn").addEventListener("click", ()=>$("importFile").click());
+  $("importFile").addEventListener("change", e=>{ if(e.target.files&&e.target.files[0]) importSaves(e.target.files[0]); e.target.value=""; });
+  document.querySelectorAll("nav.tabs button").forEach(b=> b.addEventListener("click", ()=>switchTab(b.dataset.tab)));
+
+  // ================= BOOT =================
+  bootSaves();
+  switchTab("play");
+})();
+</script>
+</body>
+</html>
