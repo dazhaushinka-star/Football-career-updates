@@ -251,6 +251,38 @@
   .history-season .hs-line .medal { color: var(--gold); font-weight: 700; }
   .history-season .hs-line .icap { color: var(--intl); font-weight: 700; }
 
+  /* Trophy cabinet */
+  .cabinet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .trophy-card {
+    background: rgba(0,0,0,0.28); border: 1px solid var(--pitch-line); border-radius: 14px;
+    padding: 16px 12px; text-align: center; position: relative; overflow: hidden;
+  }
+  .trophy-card.won {
+    border-color: var(--gold);
+    background: linear-gradient(160deg, rgba(247,201,72,0.16), rgba(0,0,0,0.2));
+    box-shadow: inset 0 0 24px rgba(247,201,72,0.12);
+  }
+  .trophy-card.won.intl { border-color: var(--intl); background: linear-gradient(160deg, rgba(53,167,255,0.16), rgba(0,0,0,0.2)); box-shadow: inset 0 0 24px rgba(53,167,255,0.12); }
+  .trophy-card.won.euro { border-color: var(--cup); background: linear-gradient(160deg, rgba(176,123,255,0.16), rgba(0,0,0,0.2)); box-shadow: inset 0 0 24px rgba(176,123,255,0.12); }
+  .trophy-card .ic { font-size: 38px; line-height: 1; filter: grayscale(1) opacity(0.35); }
+  .trophy-card.won .ic { filter: none; animation: trophyPop 0.5s ease; }
+  @keyframes trophyPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+  .trophy-card .tc-name {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; font-size: 13px; margin-top: 8px; line-height: 1.15;
+    color: rgba(255,255,255,0.55);
+  }
+  .trophy-card.won .tc-name { color: var(--chalk); }
+  .trophy-card .tc-count {
+    display: inline-block; margin-top: 6px; font-family: 'Anton', sans-serif; font-size: 20px;
+    color: var(--gold); line-height: 1;
+  }
+  .trophy-card.won.intl .tc-count { color: var(--intl); }
+  .trophy-card.won.euro .tc-count { color: var(--cup); }
+  .trophy-card .tc-count.zero { color: rgba(255,255,255,0.3); }
+  .trophy-card .tc-locked { margin-top: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.3); }
+  .cabinet-empty { color: rgba(255,255,255,0.5); font-size: 14px; text-align: center; padding: 8px 0; line-height: 1.5; grid-column: 1 / -1; }
+
   .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: flex-end; justify-content: center; z-index: 50; }
   .modal-back.open { display: flex; }
   .modal {
@@ -394,6 +426,10 @@
           <div class="stat"><div class="num" id="hsTrophies">0</div><div class="lbl">Trophies</div></div>
           <div class="stat"><div class="num" id="hsCaps">0</div><div class="lbl">Intl Caps</div></div>
         </div>
+      </div>
+      <div class="panel">
+        <h2>Trophy Cabinet</h2>
+        <div id="cabinet" class="cabinet"></div>
       </div>
       <div class="panel">
         <h2>Season by Season</h2>
@@ -860,11 +896,53 @@
   function stageReached(cur,target){ const o=["group","qf","sf","final"]; return o.indexOf(cur)>=o.indexOf(target); }
   function cupMatchRow(a,b,ms,os,mine,intl){ const win=ms>os; return `<div class="cup-match ${mine?'mine':''} ${intl?'intl':''}"><div class="cm-teams"><span class="${win?'win':''}">${escapeHtml(a)}</span><span class="${win?'lose':''}">${escapeHtml(b)}</span></div><div class="cm-score">${ms}–${os}</div></div>`; }
 
+  function renderCabinet(){
+    const box=$("cabinet"); if(!box) return;
+    // Tally trophies from finished seasons plus anything already secured this season.
+    const logs = [...(state.history||[])];
+    if (state.seasonLog) logs.push(state.seasonLog); // include in-progress season's secured trophies
+    const counts = {}; // key -> count
+    const add=(k)=>{ counts[k]=(counts[k]||0)+1; };
+    logs.forEach(h=>{
+      if (h.champions) add("league:"+h.tier);   // a title in that specific division
+      if (h.clTrophy) add("cl");
+      if (h.intlTrophy) add("intl:"+h.intlTrophy);
+    });
+
+    // Card definitions in display order
+    const cards = [];
+    TIERS.forEach(t => cards.push({ key:"league:"+t, icon:"🏆", name:t+" Title", kind:"league" }));
+    cards.push({ key:"cl", icon:"⭐", name:"Champions League", kind:"euro" });
+    // international trophies — show the two that apply to this nationality
+    const contName = continentalName(state.nationality);
+    cards.push({ key:"intl:World Cup", icon:"🌍", name:"World Cup", kind:"intl" });
+    cards.push({ key:"intl:"+contName, icon:"🏅", name:contName, kind:"intl" });
+
+    const totalWon = Object.values(counts).reduce((a,b)=>a+b,0);
+    box.innerHTML="";
+    if (totalWon===0){
+      box.innerHTML=`<div class="cabinet-empty">No silverware yet. Win your division, the Champions League, or a World Cup and the trophies will appear here — lit up and counted.</div>`;
+      // still show the locked cards below the note so he can see what's available
+    }
+    cards.forEach(c=>{
+      const n = counts[c.key]||0;
+      const won = n>0;
+      const div=document.createElement("div");
+      div.className = "trophy-card"+(won?" won "+(c.kind==="intl"?"intl":c.kind==="euro"?"euro":""):"");
+      div.innerHTML = `
+        <div class="ic">${c.icon}</div>
+        <div class="tc-name">${escapeHtml(c.name)}</div>
+        ${won ? `<div class="tc-count">×${n}</div>` : `<div class="tc-locked">Not won yet</div>`}`;
+      box.appendChild(div);
+    });
+  }
+
   // ================= RENDER: HISTORY =================
   function renderHistoryTab(){
     $("hsGoals").textContent = state.careerGoals||0;
     $("hsTrophies").textContent = state.careerTrophies||0;
     $("hsCaps").textContent = state.intlCaps||0;
+    renderCabinet();
     const list=$("historyList"); list.innerHTML="";
     if (!state.history || !state.history.length){
       list.innerHTML=`<div class="empty-note">Finished seasons will appear here — leagues won, cups lifted, and international trophies. Play your first full season to start your story.</div>`;
