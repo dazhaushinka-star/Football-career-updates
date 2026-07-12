@@ -161,6 +161,7 @@
   }
   .line.goal { border-left-color: var(--gold); background: rgba(247,201,72,0.14); font-weight: 600; }
   .line.goal .big { display: block; font-family: 'Anton', sans-serif; font-size: 22px; color: var(--gold); letter-spacing: 1px; margin-bottom: 2px; }
+  .line.flavour { border-left-color: rgba(255,255,255,0.25); background: rgba(0,0,0,0.18); font-size: 14px; color: rgba(255,255,255,0.82); }
   @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   .fulltime { text-align: center; padding: 8px 0 4px; }
@@ -538,6 +539,33 @@
   };
   const EURO_CLUBS = ["Real Montara","Inter Vellano","Bayern Sturmfeld","Olympique Vireux","Ajax Merwede","FC Portalegre","Dynamo Vösk","Sporting Návoa","Atlético Rivera","Galatasport","Benfica Serra","Milan Verano","Sevilla Prado","Roma Aventino","Porto Aldeia"];
 
+  // --- Season "ambition" bands: how the TEAM is likely to fare this season.
+  // The player's personal scoring stays high regardless; only the team result varies.
+  // Per-match [win, draw] weights (loss = remainder), plus rival strength scaling.
+  const BAND_MATCH = { title:[0.82,0.13], europe:[0.62,0.22], mid:[0.42,0.28], releg:[0.28,0.26] };
+  const BAND_RIVAL = { title:0.85, europe:1.0, mid:1.25, releg:1.5 };
+  function rollBand(tierIndex){
+    const r=Math.random();
+    if (tierIndex>=4){ if(r<0.35)return"title"; if(r<0.65)return"europe"; if(r<0.90)return"mid"; return"releg"; }
+    if(r<0.45)return"title"; if(r<0.72)return"europe"; if(r<0.92)return"mid"; return"releg";
+  }
+
+  // European competitions unlocked by final league position.
+  // Champions League: win the league (or Prem top 4). Europa: 2nd–3rd. Conference: 4th–5th.
+  const EURO_COMPS = {
+    cl:   { key:"cl",   name:"Champions League",        short:"Champions League", icon:"⭐", cls:"euro" },
+    uel:  { key:"uel",  name:"Europa League",           short:"Europa League",    icon:"🥈", cls:"euro" },
+    uecl: { key:"uecl", name:"Europa Conference League",short:"Conference League",icon:"🥉", cls:"euro" }
+  };
+  function euroCompForFinish(tierIndex, pos){
+    // Only the top club tier (Prem) and Championship feed Europe in this world.
+    if (tierIndex < CL_TIER_INDEX) return null;
+    if (pos===1) return "cl";
+    if (pos<=3) return "uel";
+    if (pos<=5) return "uecl";
+    return null;
+  }
+
   const EUROPEAN_NATIONS = ["England","Scotland","Wales","Ireland","France","Spain","Germany","Italy","Portugal","Netherlands","Belgium","Croatia"];
   const OTHER_NATIONS = ["Brazil","Argentina","Uruguay","Colombia","Mexico","USA","Japan","Nigeria","Senegal","Morocco"];
   const NATIONS = [...EUROPEAN_NATIONS, ...OTHER_NATIONS];
@@ -579,6 +607,8 @@
       careerTrophies: 0,
       // season state
       table: null, fixtures: null, fixturePtr: 0, scorers: null,
+      band: null,                    // this season's team ambition band
+      euroComp: null,                // European competition qualified for (from last season's finish)
       // international
       calledUp: false, intlSeason: 0, intlGoals: 0, intlCaps: 0,
       intlPending: false,            // a friendly queued
@@ -624,12 +654,24 @@
     const fx=[]; rivals.forEach(r=>{ fx.push({opp:r,home:true,played:false}); fx.push({opp:r,home:false,played:false}); });
     c.fixtures=shuffle(fx); c.fixturePtr=0;
     c.scorers={"__me":0}; shuffle(SCORER_NAMES).slice(0,6).forEach(n=>c.scorers[n]=0);
+    // roll this season's team ambition band
+    c.band = rollBand(c.tierIndex);
     // fresh season log
-    c.seasonLog = { season:c.season, tier:TIERS[c.tierIndex], leagueGoals:0, promoted:false, champions:false, clTrophy:false, intlTrophy:null, intlComp:null };
+    c.seasonLog = { season:c.season, tier:TIERS[c.tierIndex], leagueGoals:0, promoted:false, relegated:false, champions:false, finishPos:null, band:c.band, clTrophy:false, euroComp:c.euroComp||null, euroTrophy:null, intlTrophy:null, intlComp:null };
+    // set up the European cup he qualified for last season (if any)
+    c.cup=null; c.cupNextQueued=false;
+    if (c.euroComp){ startCup(c, c.euroComp); }
     // decide this season's international tournament (only matters once called up)
     if (c.calledUp) setupIntlSeason(c);
   }
-  function ensureSeason(c){ if(!c.table||!c.fixtures) startSeason(c); if(!c.history) c.history=[]; if(!c.seasonLog) c.seasonLog={season:c.season,tier:TIERS[c.tierIndex],leagueGoals:0,promoted:false,champions:false,clTrophy:false,intlTrophy:null,intlComp:null}; }
+  function ensureSeason(c){
+    if(!c.table||!c.fixtures) startSeason(c);
+    if(!c.history) c.history=[];
+    if(c.band===undefined||c.band===null) c.band = rollBand(c.tierIndex); // backfill for old saves
+    if(c.euroComp===undefined) c.euroComp = null;
+    if(!c.seasonLog) c.seasonLog={season:c.season,tier:TIERS[c.tierIndex],leagueGoals:0,promoted:false,relegated:false,champions:false,finishPos:null,band:c.band,clTrophy:false,euroComp:c.euroComp||null,euroTrophy:null,intlTrophy:null,intlComp:null};
+    else if(c.seasonLog.band===undefined) c.seasonLog.band=c.band; // backfill
+  }
   function currentFixture(){ return state.fixturePtr>=state.fixtures.length ? null : state.fixtures[state.fixturePtr]; }
 
   // ================= INTERNATIONAL TOURNAMENT CYCLE =================
@@ -690,11 +732,13 @@
   }
 
   // ================= CHAMPIONS LEAGUE CUP =================
-  function eligibleForCup(){ return state.tierIndex>=CL_TIER_INDEX; }
-  function startCup(){
+  function eligibleForCup(){ return !!state.cup; }
+  function startCup(c, compKey){
+    c = c || state;
+    const comp = EURO_COMPS[compKey] || EURO_COMPS.cl;
     const pool=shuffle(EURO_CLUBS); const group=pool.slice(0,3);
-    state.cup={ stage:"group", groupOpp:group, groupPtr:0, groupResults:[], bracket:{qf:null,sf:null,final:null}, poolRest:pool.slice(3), done:false, won:false };
-    state.cupNextQueued=true;
+    c.cup={ comp:compKey, name:comp.name, icon:comp.icon, stage:"group", groupOpp:group, groupPtr:0, groupResults:[], bracket:{qf:null,sf:null,final:null}, poolRest:pool.slice(3), done:false, won:false };
+    c.cupNextQueued=true;
   }
   function nextCupMatch(){
     const cup=state.cup; if(!cup) return null;
@@ -712,15 +756,12 @@
     state.cupNextQueued=false;
   }
   function maybeQueueCup(){
-    if (!eligibleForCup()) return;
-    if (!state.cup){ const me=state.table[state.clubName]; if(me&&me.p>=2) startCup(); return; }
-    if (state.cup.done) return;
+    if (!state.cup || state.cup.done) return;
     if (!state.cupNextQueued){
       const me=state.table[state.clubName];
       const leagueLeft = state.fixtures.length - state.fixturePtr;
-      // Normally queue a cup tie every few games. But if the league is nearly
-      // over and the cup isn't finished, force cup ties now so the final always
-      // gets played before the season rolls over.
+      // Queue a European tie every few games; force remaining ties near season's
+      // end so the final is always played before the season rolls over.
       if (me && (me.p%3===0 || leagueLeft<=1)) state.cupNextQueued=true;
     }
   }
@@ -790,8 +831,9 @@
       wrap.classList.add("intl"); wrap.innerHTML=state.nationality+" vs <b>"+opp+"</b> (friendly)";
     } else if (next==="cup"){
       const m=nextCupMatch();
-      badge.className="fixture-badge cup"; badge.textContent="★ Champions League · "+stageLabel(state.cup.stage);
-      kb.classList.add("cup"); small.textContent="Champions League";
+      const cn=state.cup.name||"Champions League";
+      badge.className="fixture-badge cup"; badge.textContent="★ "+cn+" · "+stageLabel(state.cup.stage);
+      kb.classList.add("cup"); small.textContent=cn;
       wrap.classList.add("cup"); wrap.innerHTML="vs <b>"+(m?m.opp:"—")+"</b>";
     } else {
       const fx=currentFixture();
@@ -858,9 +900,24 @@
         <td>${(r.gf-r.ga)>=0?'+':''}${r.gf-r.ga}</td><td class="pts">${r.pts}</td>`;
       body.appendChild(tr); });
     const played=(state.table[state.clubName]||{}).p||0, total=state.fixtures.length;
-    $("promoNote").innerHTML = played>=total
-      ? `<b>Season finished — you're promoted!</b> Kick off to begin ${state.tierIndex+1<TIERS.length?TIERS[state.tierIndex+1]:'a new season at the top'}.`
-      : `${total-played} games left this season. Win the league to get promoted.`;
+    const pos = leaguePosition();
+    const teamCount = rows.length;
+    if (played>=total){
+      // season complete — show what this finish means
+      let msg;
+      if (pos===1 && state.tierIndex<TIERS.length-1) msg=`<b>Champions — promoted!</b> Kick off to begin ${TIERS[state.tierIndex+1]}.`;
+      else if (pos===1) msg=`<b>Champions of the ${tierName()}! 🏆</b> Kick off to start the new season.`;
+      else if (pos>=teamCount-1 && state.tierIndex>0) msg=`<b>Relegated to ${TIERS[state.tierIndex-1]}.</b> A chance to bounce straight back. Kick off to begin.`;
+      else {
+        const euro=euroCompForFinish(state.tierIndex,pos);
+        const place=pos+(pos===2?"nd":pos===3?"rd":"th");
+        msg=`<b>Finished ${place}.</b> ${euro?`Into the ${EURO_COMPS[euro].name} next season!`:`Kick off to start the new season.`}`;
+      }
+      $("promoNote").innerHTML=msg;
+    } else {
+      const bandMsg = { title:"Title charge — top spot beckons.", europe:"Chasing a European place.", mid:"A steady mid-table campaign.", releg:"A tough season — battling the drop." }[state.band] || "";
+      $("promoNote").innerHTML=`Currently ${pos}${pos===1?"st":pos===2?"nd":pos===3?"rd":"th"} · ${total-played} games left. <span style="opacity:0.8">${bandMsg}</span>`;
+    }
   }
 
   // ================= RENDER: SCORERS =================
@@ -879,9 +936,15 @@
   // ================= RENDER: CUP =================
   function renderCupTab(){
     const box=$("cupContent");
-    if (!state.cup){ box.innerHTML=`<div class="empty-note">The Champions League opens once you're established in the ${TIERS[CL_TIER_INDEX]} or above. Play a couple of league games to qualify.</div>`; return; }
+    const heading=document.querySelector("#tab-cup h2");
+    if (!state.cup){
+      if(heading) heading.textContent="European Cup";
+      box.innerHTML=`<div class="empty-note">No European football this season. Finish in the top half of the ${TIERS[CL_TIER_INDEX]} or higher to qualify: win the league for the Champions League, 2nd–3rd for the Europa League, 4th–5th for the Conference League.</div>`;
+      return;
+    }
+    if(heading) heading.textContent=state.cup.name||"European Cup";
     box.innerHTML = bracketHtml(state.cup, state.clubName, false);
-    if (state.cup.done && state.cup.won) box.innerHTML += `<div class="promo-note"><b>🏆 Champions of Europe!</b> A new cup begins next season.</div>`;
+    if (state.cup.done && state.cup.won) box.innerHTML += `<div class="promo-note"><b>${state.cup.icon||'🏆'} ${escapeHtml(state.cup.name)} winners!</b> Qualify again to defend it next season.</div>`;
   }
 
   // ================= RENDER: NATION =================
@@ -947,14 +1010,17 @@
     const add=(k)=>{ counts[k]=(counts[k]||0)+1; };
     logs.forEach(h=>{
       if (h.champions) add("league:"+h.tier);   // a title in that specific division
-      if (h.clTrophy) add("cl");
+      if (h.euroTrophy) add("euro:"+h.euroTrophy);
+      else if (h.clTrophy) add("euro:cl");        // legacy saves that only set clTrophy
       if (h.intlTrophy) add("intl:"+h.intlTrophy);
     });
 
     // Card definitions in display order
     const cards = [];
     TIERS.forEach(t => cards.push({ key:"league:"+t, icon:"🏆", name:t+" Title", kind:"league" }));
-    cards.push({ key:"cl", icon:"⭐", name:"Champions League", kind:"euro" });
+    cards.push({ key:"euro:cl",   icon:"⭐", name:"Champions League",   kind:"euro" });
+    cards.push({ key:"euro:uel",  icon:"🥈", name:"Europa League",      kind:"euro" });
+    cards.push({ key:"euro:uecl", icon:"🥉", name:"Conference League",  kind:"euro" });
     // international trophies — show the two that apply to this nationality
     const contName = continentalName(state.nationality);
     cards.push({ key:"intl:World Cup", icon:"🌍", name:"World Cup", kind:"intl" });
@@ -963,7 +1029,7 @@
     const totalWon = Object.values(counts).reduce((a,b)=>a+b,0);
     box.innerHTML="";
     if (totalWon===0){
-      box.innerHTML=`<div class="cabinet-empty">No silverware yet. Win your division, the Champions League, or a World Cup and the trophies will appear here — lit up and counted.</div>`;
+      box.innerHTML=`<div class="cabinet-empty">No silverware yet. Win your division, a European cup, or a World Cup and the trophies will appear here — lit up and counted.</div>`;
       // still show the locked cards below the note so he can see what's available
     }
     cards.forEach(c=>{
@@ -991,13 +1057,22 @@
       return;
     }
     [...state.history].reverse().forEach(h=>{
-      const hasTrophy = h.champions || h.clTrophy || h.intlTrophy;
-      const div=document.createElement("div"); div.className="history-season"+(hasTrophy?" trophy":"");
+      const euroTrophyName = h.euroTrophy ? (EURO_COMPS[h.euroTrophy]?EURO_COMPS[h.euroTrophy].name:"European") : null;
+      const hasTrophy = h.champions || h.clTrophy || euroTrophyName || h.intlTrophy;
+      const div=document.createElement("div"); div.className="history-season"+(hasTrophy?" trophy":(h.relegated?" releg":""));
       let lines=[];
-      lines.push(`<span class="medal">${h.champions?'🏆 '+h.tier+' champions':'Finished '+h.tier}</span>`);
-      if (h.promoted) lines.push(`Promoted to the next division`);
+      // League finish line
+      const pos=h.finishPos;
+      const place = pos ? pos+(pos===1?"st":pos===2?"nd":pos===3?"rd":"th") : null;
+      if (h.champions) lines.push(`<span class="medal">🏆 ${h.tier} champions</span>`);
+      else if (place) lines.push(`Finished ${place} in the ${h.tier}`);
+      else lines.push(`Finished ${h.tier}`);
+      if (h.promoted) lines.push(`<span class="medal">⬆ Promoted</span>`);
+      if (h.relegated) lines.push(`<span style="color:var(--danger);font-weight:700">⬇ Relegated</span>`);
       lines.push(`${h.leagueGoals} league goals`);
       if (h.clTrophy) lines.push(`<span class="medal">🏆 Champions League winners</span>`);
+      else if (euroTrophyName) lines.push(`<span class="medal">🏆 ${euroTrophyName} winners</span>`);
+      else if (h.euroComp) lines.push(`<span style="color:var(--cup)">${EURO_COMPS[h.euroComp]?EURO_COMPS[h.euroComp].short:"Europe"} campaign</span>`);
       if (h.intlTrophy) lines.push(`<span class="icap">🏆 ${h.intlTrophy} winners with ${state.nationality}</span>`);
       else if (h.intlComp) lines.push(`<span class="icap">${h.intlComp} — represented ${state.nationality}</span>`);
       div.innerHTML=`<div class="hs-head"><span class="hs-season">Season ${h.season}</span><span class="hs-tier">${h.tier}</span></div><div class="hs-line">${lines.join(' · ')}</div>`;
@@ -1008,9 +1083,13 @@
   // ================= MATCH ENGINE =================
   let myScore=0, oppScore=0, timer=null, matchType="league", matchOpp="", matchHome=true;
 
-  function planOutcome(){
+  function planOutcome(bandKey){
+    // Team win/draw/loss weights come from the season band for league games.
+    // Knockouts and internationals pass no band and use the strong default.
+    let w=0.70, d=0.20;
+    if (bandKey && BAND_MATCH[bandKey]){ w=BAND_MATCH[bandKey][0]; d=BAND_MATCH[bandKey][1]; }
     const r=Math.random();
-    let outcome = r<0.70 ? "win" : (r<0.90 ? "draw" : "loss");
+    let outcome = r<w ? "win" : (r<w+d ? "draw" : "loss");
     let myGoals, theirGoals, comeback=false;
     if (outcome==="win"){
       const b=Math.random();
@@ -1029,7 +1108,8 @@
       theirGoals=2+Math.floor(Math.random()*2);                // 2–3
       myGoals=theirGoals-1;                                     // lose by one, still scored
     }
-    // He always gets on the scoresheet when his side scores.
+    // He always gets on the scoresheet when his side scores — his personal
+    // brilliance is constant even when the team's season is a struggle.
     let playerGoals=0;
     if (myGoals>0){
       playerGoals = outcome==="win"
@@ -1057,7 +1137,7 @@
       $("matchBadge").className="fixture-badge intl"; $("matchBadge").textContent="⚑ Friendly — "+state.nationality;
     } else if (matchType==="cup"){
       const m=nextCupMatch(); matchOpp=m?m.opp:pick(EURO_CLUBS); matchHome=true; myTeamName=state.clubName;
-      $("matchBadge").className="fixture-badge cup"; $("matchBadge").textContent="★ "+stageLabel(state.cup.stage);
+      $("matchBadge").className="fixture-badge cup"; $("matchBadge").textContent="★ "+(state.cup.name||"Europe")+" · "+stageLabel(state.cup.stage);
     } else {
       const fx=currentFixture(); matchOpp=fx?fx.opp:pick(DIVISION_CLUBS[tierName()]); matchHome=fx?fx.home:true; myTeamName=state.clubName;
       $("matchBadge").className="fixture-badge league"; $("matchBadge").textContent="League Match";
@@ -1075,11 +1155,12 @@
     $("mbAway").className="sb-team"+(!matchHome?" mine":"")+(!matchHome?intlCls:"");
 
     // ---- Plan the match outcome ----
-    // ~70% win, ~20% draw, ~10% loss. He personally scores in every game.
-    // Wins can be big (up to 10-0); ~1 in 5 wins is a dramatic comeback.
-    // Knockouts (cup / international tournament) must be wins so the bracket can progress.
+    // League games follow the season's team "band" (title/europe/mid/releg), so the
+    // team's fortunes vary. His personal scoring stays high regardless. Knockouts and
+    // internationals use the strong default and must be wins so brackets can progress.
     const knockout = (matchType==="cup" || matchType==="tournament");
-    let plan = planOutcome();
+    const bandKey = (matchType==="league") ? state.band : null;
+    let plan = planOutcome(bandKey);
     if (knockout){ while (plan.outcome!=="win") plan=planOutcome(); }
     const myGoals = plan.myGoals, theirGoals = plan.theirGoals;
     let playerGoals = plan.playerGoals;
@@ -1103,16 +1184,90 @@
       events.forEach(ev=>{ ev.minute=minute; minute+=Math.max(3, Math.floor(84/(events.length+1))+Math.floor(Math.random()*10)-4); if(minute>90) minute=80+Math.floor(Math.random()*10); });
     }
     events.sort((a,b)=>a.minute-b.minute);
+
+    // ---- Match flavour events: offsides, free kicks, penalties, cards ----
+    // These add drama between the goals. Penalties are attached to real goals so
+    // the scoreline stays consistent; other events are narrative colour. Cards and
+    // penalty misses can rarely involve his own player (realistic, but uncommon).
+    const flavour = buildFlavourEvents(events, myTeamName, plan);
+    // merge flavour events into the timeline
+    const timeline = [...events.map(e=>({...e, cat:"goal"})), ...flavour];
+    timeline.sort((a,b)=>a.minute-b.minute);
+
     state._matchPlan={myTeamName, outcome:plan.outcome, comeback:plan.comeback};
 
     let idx=0; setClock("KICK OFF");
     addLine("The whistle blows. "+myTeamName+" get us underway against "+matchOpp+".");
     timer=setInterval(()=>{
-      if (idx>=events.length){ clearInterval(timer); setTimeout(fullTime,900); return; }
-      const ev=events[idx++]; setClock(ev.minute+"'");
-      if (ev.type==="myGoal"){ myScore++; updateBoard(); if(ev.byPlayer) addGoalLine(ev.minute); else addLine(`${ev.minute}' — GOAL for ${myTeamName}! A teammate finishes a lovely move.`); }
-      else { oppScore++; updateBoard(); addLine(`${ev.minute}' — ${oppGoalText(myTeamName)}`); }
-    },1400);
+      if (idx>=timeline.length){ clearInterval(timer); setTimeout(fullTime,900); return; }
+      const ev=timeline[idx++]; setClock(ev.minute+"'");
+      if (ev.cat==="goal"){
+        if (ev.type==="myGoal"){ myScore++; updateBoard();
+          if (ev.penalty && ev.byPlayer) addGoalLine(ev.minute, "slots home the penalty");
+          else if (ev.byPlayer) addGoalLine(ev.minute);
+          else addLine(`${ev.minute}' — GOAL for ${myTeamName}! A teammate finishes a lovely move.`);
+        } else { oppScore++; updateBoard(); addLine(`${ev.minute}' — ${oppGoalText(myTeamName)}`); }
+      } else {
+        addFlavourLine(ev, myTeamName);
+      }
+    },1150);
+  }
+
+  function buildFlavourEvents(goalEvents, myTeamName, plan){
+    const out=[];
+    const lastMinute = goalEvents.length ? goalEvents[goalEvents.length-1].minute : 70;
+    // Mark one of my player's goals as a penalty sometimes
+    const myPlayerGoals = goalEvents.filter(e=>e.type==="myGoal" && e.byPlayer);
+    if (myPlayerGoals.length && Math.random()<0.22){ const g=pick(myPlayerGoals); g.penalty=true; }
+
+    const addEv=(minute,kind,side,detail)=>out.push({cat:"flavour", minute:Math.min(90,Math.max(2,minute)), kind, side, detail});
+
+    // Offsides — common, harmless
+    const nOff = Math.floor(Math.random()*3); // 0-2
+    for(let i=0;i<nOff;i++) addEv(3+Math.floor(Math.random()*85), "offside", Math.random()<0.5?"us":"them");
+
+    // Free kicks — common
+    const nFk = Math.floor(Math.random()*3); // 0-2
+    for(let i=0;i<nFk;i++) addEv(3+Math.floor(Math.random()*85), "freekick", Math.random()<0.55?"us":"them");
+
+    // A won penalty that he missed (rare, only if he had spare attacking presence)
+    if (Math.random()<0.06){ addEv(20+Math.floor(Math.random()*60), "penmiss", "us"); }
+
+    // Yellow cards — occasional, either side incl. his player rarely
+    const nYel = Math.random()<0.5 ? 1 : (Math.random()<0.3?2:0);
+    for(let i=0;i<nYel;i++){
+      const mine = Math.random()<0.5;
+      const toPlayer = mine && Math.random()<0.25; // sometimes it's his player
+      addEv(10+Math.floor(Math.random()*78), "yellow", mine?"us":"them", toPlayer?"player":null);
+    }
+    // Red card — rare; almost always the opponent, very rarely his player
+    if (Math.random()<0.05){
+      const mine = Math.random()<0.2;
+      const toPlayer = mine && Math.random()<0.3;
+      addEv(35+Math.floor(Math.random()*55), "red", mine?"us":"them", toPlayer?"player":null);
+    }
+    return out;
+  }
+
+  function addFlavourLine(ev, myTeamName){
+    const us = ev.side==="us";
+    const teamWord = us ? myTeamName : matchOpp;
+    let txt="";
+    switch(ev.kind){
+      case "offside": txt = us ? `${teamWord} have the ball in the net but the flag is up — offside.` : `${matchOpp} caught offside as ${myTeamName} hold their line well.`; break;
+      case "freekick": txt = us ? `${myTeamName} win a dangerous free kick in a good position.` : `Free kick to ${matchOpp}, but the defence stands firm.`; break;
+      case "penmiss": txt = `PENALTY to ${myTeamName}! But ${state.playerName}'s spot-kick is saved — he'll want to forget that one.`; break;
+      case "yellow":
+        if (ev.detail==="player") txt = `${state.playerName} goes into the book — a yellow card for a mistimed challenge.`;
+        else txt = us ? `A ${myTeamName} player is shown a yellow card.` : `${matchOpp} pick up a booking.`;
+        break;
+      case "red":
+        if (ev.detail==="player") txt = `Disaster — ${state.playerName} is shown a red card and will take an early bath!`;
+        else txt = us ? `${myTeamName} are down to ten men after a red card.` : `${matchOpp} have a man sent off! Advantage ${myTeamName}.`;
+        break;
+      default: txt = "";
+    }
+    if (txt){ const d=document.createElement("div"); d.className="line flavour"; d.textContent=`${ev.minute}' — ${txt}`; $("commentary").appendChild(d); scrollComm(); }
   }
 
   function oppGoalText(myTeamName){
@@ -1129,7 +1284,7 @@
     }
     return `${matchOpp} edge in front, but ${myTeamName} aren't done yet.`;
   }
-  function addGoalLine(minute){ const how=pick(POS_GOAL_WORDS[state.position]||POS_GOAL_WORDS["Striker"]); const d=document.createElement("div"); d.className="line goal"; d.innerHTML=`<span class="big">⚽ GOAL — ${escapeHtml(state.playerName)}!</span>${minute}' — ${cap(how)}. ${pick(CROWD)}`; $("commentary").appendChild(d); scrollComm(); }
+  function addGoalLine(minute, overrideHow){ const how=overrideHow||pick(POS_GOAL_WORDS[state.position]||POS_GOAL_WORDS["Striker"]); const d=document.createElement("div"); d.className="line goal"; d.innerHTML=`<span class="big">⚽ GOAL — ${escapeHtml(state.playerName)}!</span>${minute}' — ${cap(how)}. ${pick(CROWD)}`; $("commentary").appendChild(d); scrollComm(); }
   function addLine(t){ const d=document.createElement("div"); d.className="line"; d.textContent=t; $("commentary").appendChild(d); scrollComm(); }
   function scrollComm(){ const c=$("commentary"); c.scrollTop=c.scrollHeight; window.scrollTo({top:document.body.scrollHeight,behavior:"smooth"}); }
   function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
@@ -1206,8 +1361,10 @@
       state.careerGoals=(state.careerGoals||0)+pg;
       if (state.cup.done && state.cup.won){
         state.careerTrophies=(state.careerTrophies||0)+1;
-        state.seasonLog.clTrophy=true;
-        verdict=`Champions of Europe! 🏆`; sub=`${state.playerName} lifts the Champions League with ${myTeamName}.`;
+        state.seasonLog.euroTrophy=state.cup.comp;   // which European cup was won
+        if (state.cup.comp==="cl") state.seasonLog.clTrophy=true; // keep legacy flag for cabinet
+        const cn=state.cup.name;
+        verdict=`${cn} WINNERS! 🏆`; sub=`${state.playerName} lifts the ${cn} with ${myTeamName}.`;
       } else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=`Into the ${stageLabel(state.cup.stage)}. ${scorerSub(pg)}`; }
     }
 
@@ -1228,36 +1385,63 @@
   }
   function simulateOtherFixtures(excludeOpp){
     // Proper matchday: the six clubs not involved in the player's game pair up
-    // into three fixtures, so every club advances exactly one game each round
-    // and all eight finish the season on the same number played. Rival scoring is
-    // kept modest so the player reliably finishes top even after dropping points.
+    // into three fixtures, so every club advances one game each round. Rival scoring
+    // scales with the season band — stronger rivals in mid-table/relegation seasons,
+    // weaker when the team is title-chasing — so the final table matches the band.
+    const str = BAND_RIVAL[state.band] || 1.0;
+    const rg = () => Math.floor(Math.random()*3*str);
     const others=shuffle(Object.keys(state.table).filter(n=>n!==state.clubName&&n!==excludeOpp));
-    for (let i=0;i+1<others.length;i+=2){ const a=state.table[others[i]],b=state.table[others[i+1]]; const ga=Math.floor(Math.random()*3),gb=Math.floor(Math.random()*3);
+    for (let i=0;i+1<others.length;i+=2){ const a=state.table[others[i]],b=state.table[others[i+1]]; const ga=rg(),gb=rg();
       a.p++;b.p++;a.gf+=ga;a.ga+=gb;b.gf+=gb;b.ga+=ga; if(ga>gb){a.w++;a.pts+=3;b.l++;}else if(gb>ga){b.w++;b.pts+=3;a.l++;}else{a.d++;a.pts++;b.d++;b.pts++;} }
   }
   function bumpRivalScorers(){ const keys=Object.keys(state.scorers).filter(k=>k!=="__me"); const meG=state.scorers["__me"]; keys.forEach(k=>{ if(Math.random()<0.4 && state.scorers[k]<meG-1) state.scorers[k]++; }); }
 
-  function endSeasonAndAdvance(){
-    // finalise season log
-    const me=state.table[state.clubName];
-    // The player is always champion. On the rare season where dropped points leave
-    // a rival level or ahead, nudge the player's points so the trophy is consistent
-    // with a genuine top-of-the-table finish (keeps the story believable).
-    let rivalBest=0;
-    Object.keys(state.table).forEach(n=>{ if(n!==state.clubName) rivalBest=Math.max(rivalBest, state.table[n].pts); });
-    if (me.pts <= rivalBest){ me.pts = rivalBest + 1; }
-    state.seasonLog.champions = true; // always tops the league
-    if (state.tierIndex < TIERS.length-1){ state.seasonLog.promoted = true; }
-    if (state.seasonLog.champions) state.careerTrophies=(state.careerTrophies||0)+1;
-    // note: CL / intl trophies were already tallied into careerTrophies when won
-    state.history.push(state.seasonLog);
+  function leaguePosition(){
+    const rows=Object.keys(state.table).map(n=>({name:n,...state.table[n]}));
+    rows.sort((a,b)=> b.pts-a.pts || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf || a.name.localeCompare(b.name));
+    return rows.findIndex(r=>r.name===state.clubName)+1;
+  }
 
-    // advance
-    if (state.tierIndex < TIERS.length-1){ state.tierIndex++; toast("Promoted to "+TIERS[state.tierIndex]+"!"); }
-    else toast("New season at the top flight!");
+  function endSeasonAndAdvance(){
+    const me=state.table[state.clubName];
+    const teamCount = Object.keys(state.table).length; // 8
+    const pos = leaguePosition();
+    const log = state.seasonLog;
+    log.finishPos = pos;
+    log.champions = (pos===1);
+
+    // Promotion (top) / relegation (bottom two), within the league pyramid.
+    let moved="";
+    const atTop = state.tierIndex >= TIERS.length-1;
+    const atBottom = state.tierIndex <= 0;
+    if (pos===1 && !atTop){ log.promoted=true; }
+    else if (pos >= teamCount-1 && !atBottom){ log.relegated=true; } // 7th or 8th of 8
+
+    // League title is a trophy
+    if (log.champions) state.careerTrophies=(state.careerTrophies||0)+1;
+
+    // Determine next season's European qualification from this finish.
+    const nextEuro = euroCompForFinish(state.tierIndex, pos);
+
+    // Record history
+    state.history.push(log);
+
+    // Advance tier
+    if (log.promoted){ state.tierIndex++; toast("Promoted to "+TIERS[state.tierIndex]+"! 🎉"); }
+    else if (log.relegated){ state.tierIndex--; toast("Relegated to "+TIERS[state.tierIndex]+". Time to bounce back."); moved="down"; }
+    else {
+      const place = pos+(pos===1?"st":pos===2?"nd":pos===3?"rd":"th");
+      toast("Season done — finished "+place+".");
+    }
+
     state.season++;
-    state.cup=null; state.cupNextQueued=false;
-    startSeason(state); // this also advances the international season/tournament if called up
+    // Carry the European qualification into next season (Europe follows the club even if relegated,
+    // but only the top tiers qualify, so a relegated side simply won't have one next year).
+    state.euroComp = euroCompForFinish(state.tierIndex, 1)!==null ? nextEuro : nextEuro; // keep as computed
+    // If the new tier can't play in Europe at all, clear it.
+    if (state.tierIndex < CL_TIER_INDEX) state.euroComp = null;
+
+    startSeason(state); // sets up new table, band, cup (from euroComp), intl season
   }
 
   function backToClub(){ showOnly("tab-"+currentTab); renderCurrentTab(); window.scrollTo({top:0,behavior:"smooth"}); }
