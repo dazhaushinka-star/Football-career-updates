@@ -491,12 +491,32 @@
     <hr class="divider">
     <div class="secondary-actions">
       <button class="wide-btn new" id="newCareerBtn">＋ Start a new career</button>
-      <button class="wide-btn" id="exportBtn">⬇ Back up all careers to a file</button>
-      <button class="wide-btn" id="importBtn">⬆ Restore careers from a file</button>
+      <button class="wide-btn" id="copyCodeBtn">📋 Copy save code (to back up or move)</button>
+      <button class="wide-btn" id="pasteCodeBtn">📥 Paste save code (to restore)</button>
+    </div>
+    <div class="modal-hint" style="margin-top:14px">
+      The save code is all your careers as text. Copy it and paste it into a note or message to keep it safe or send it to another phone — then paste it back here any time to restore.
+    </div>
+    <hr class="divider">
+    <div class="secondary-actions">
+      <button class="wide-btn" id="exportBtn" style="opacity:0.75">⬇ Back up to a file instead</button>
+      <button class="wide-btn" id="importBtn" style="opacity:0.75">⬆ Restore from a file instead</button>
       <input type="file" id="importFile" accept="application/json,.json" class="hidden">
     </div>
   </div>
 </div>
+
+<!-- SAVE CODE MODAL -->
+<div class="modal-back" id="codeModal">
+  <div class="modal">
+    <h3 id="codeTitle">Save code</h3>
+    <div class="modal-hint" id="codeHint">Tap the box to select all, then copy.</div>
+    <textarea id="codeBox" spellcheck="false" style="width:100%;min-height:140px;background:rgba(0,0,0,0.35);border:1px solid var(--pitch-line);border-radius:10px;color:var(--chalk);font-family:monospace;font-size:12px;padding:12px;resize:vertical"></textarea>
+    <button class="save-btn" id="codeActionBtn">Copy</button>
+    <button class="wide-btn" id="codeCloseBtn" style="margin-top:10px">Close</button>
+  </div>
+</div>
+
 
 <div class="toast" id="toast"></div>
 
@@ -988,6 +1008,38 @@
   // ================= MATCH ENGINE =================
   let myScore=0, oppScore=0, timer=null, matchType="league", matchOpp="", matchHome=true;
 
+  function planOutcome(){
+    const r=Math.random();
+    let outcome = r<0.70 ? "win" : (r<0.90 ? "draw" : "loss");
+    let myGoals, theirGoals, comeback=false;
+    if (outcome==="win"){
+      const b=Math.random();
+      let margin;
+      if (b<0.55) margin=1+Math.floor(Math.random()*2);        // routine 1–2
+      else if (b<0.85) margin=3+Math.floor(Math.random()*2);   // comfortable 3–4
+      else margin=5+Math.floor(Math.random()*6);               // thrashing 5–10
+      comeback = Math.random()<0.20;
+      if (comeback){ theirGoals=1+Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
+      else { theirGoals=Math.random()<0.5?0:Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
+      if (myGoals>10) myGoals=10;
+    } else if (outcome==="draw"){
+      const g=1+Math.floor(Math.random()*2);                   // 1–1 or 2–2
+      myGoals=g; theirGoals=g;
+    } else {                                                    // narrow loss
+      theirGoals=2+Math.floor(Math.random()*2);                // 2–3
+      myGoals=theirGoals-1;                                     // lose by one, still scored
+    }
+    // He always gets on the scoresheet when his side scores.
+    let playerGoals=0;
+    if (myGoals>0){
+      playerGoals = outcome==="win"
+        ? Math.min(myGoals, 1+Math.floor(Math.random()*Math.min(4,myGoals)))
+        : Math.min(myGoals, 1+Math.floor(Math.random()*myGoals));
+      if (playerGoals<1) playerGoals=1;
+    }
+    return {outcome, myGoals, theirGoals, playerGoals, comeback};
+  }
+
   function startMatch(){
     matchType = state._pendingType || decideNext();
 
@@ -1022,18 +1074,36 @@
     $("mbHome").className="sb-team"+(matchHome?" mine":"")+(matchHome?intlCls:"");
     $("mbAway").className="sb-team"+(!matchHome?" mine":"")+(!matchHome?intlCls:"");
 
-    const myGoals=2+Math.floor(Math.random()*3);
-    const theirGoals=Math.floor(Math.random()*Math.min(2,myGoals));
-    let playerGoals=Math.min(1+Math.floor(Math.random()*Math.min(3,myGoals)), myGoals);
+    // ---- Plan the match outcome ----
+    // ~70% win, ~20% draw, ~10% loss. He personally scores in every game.
+    // Wins can be big (up to 10-0); ~1 in 5 wins is a dramatic comeback.
+    // Knockouts (cup / international tournament) must be wins so the bracket can progress.
+    const knockout = (matchType==="cup" || matchType==="tournament");
+    let plan = planOutcome();
+    if (knockout){ while (plan.outcome!=="win") plan=planOutcome(); }
+    const myGoals = plan.myGoals, theirGoals = plan.theirGoals;
+    let playerGoals = plan.playerGoals;
 
+    // Build the event list, then order minutes. For comebacks we deliberately
+    // stack the opponent's goals early so he roars back to win.
     const events=[]; let pgl=playerGoals;
-    for (let i=0;i<myGoals;i++){ const byP=pgl>0&&(Math.random()<0.75||myGoals-i<=pgl); if(byP) pgl--; events.push({type:"myGoal",byPlayer:byP}); }
+    for (let i=0;i<myGoals;i++){ const byP=pgl>0&&(Math.random()<0.8||myGoals-i<=pgl); if(byP) pgl--; events.push({type:"myGoal",byPlayer:byP}); }
     for (let i=0;i<theirGoals;i++) events.push({type:"theirGoal"});
-    events.sort(()=>Math.random()-0.5);
-    let minute=4+Math.floor(Math.random()*6);
-    events.forEach(ev=>{ ev.minute=minute; minute+=8+Math.floor(Math.random()*20); if(minute>89) minute=80+Math.floor(Math.random()*10); });
+
+    if (plan.comeback){
+      // opponent scores first: all their goals early, ours after
+      const theirs=events.filter(e=>e.type==="theirGoal");
+      const mine=events.filter(e=>e.type==="myGoal").sort(()=>Math.random()-0.5);
+      events.length=0; events.push(...theirs, ...mine);
+      let minute=5+Math.floor(Math.random()*8);
+      events.forEach((ev,i)=>{ ev.minute=minute; minute += (i<theirs.length) ? 4+Math.floor(Math.random()*8) : 6+Math.floor(Math.random()*16); if(minute>90) minute=82+Math.floor(Math.random()*8); });
+    } else {
+      events.sort(()=>Math.random()-0.5);
+      let minute=4+Math.floor(Math.random()*6);
+      events.forEach(ev=>{ ev.minute=minute; minute+=Math.max(3, Math.floor(84/(events.length+1))+Math.floor(Math.random()*10)-4); if(minute>90) minute=80+Math.floor(Math.random()*10); });
+    }
     events.sort((a,b)=>a.minute-b.minute);
-    state._matchPlan={myTeamName};
+    state._matchPlan={myTeamName, outcome:plan.outcome, comeback:plan.comeback};
 
     let idx=0; setClock("KICK OFF");
     addLine("The whistle blows. "+myTeamName+" get us underway against "+matchOpp+".");
@@ -1072,6 +1142,25 @@
     $("mbHomeScore").textContent=homeScore; $("mbAwayScore").textContent=awayScore;
   }
 
+  function teamResultWord(){ return myScore>oppScore?"win":(myScore<oppScore?"lose":"draw"); }
+  function leagueVerdict(myTeamName){
+    const w=teamResultWord();
+    if (w==="win") return `${myTeamName} win ${myScore}–${oppScore}!`;
+    if (w==="draw") return `${myTeamName} draw ${myScore}–${oppScore}`;
+    return `${myTeamName} lose ${myScore}–${oppScore}`;
+  }
+  function leagueSub(pg){
+    const w=teamResultWord();
+    const cb=state._matchPlan && state._matchPlan.comeback;
+    if (w==="win" && cb){
+      if (pg>1) return `Comeback king! ${state.playerName} hauls the team back with ${pg} — what a turnaround.`;
+      return `Down but never out — ${state.playerName} inspires the comeback. The comeback king does it again!`;
+    }
+    if (w==="win") return scorerSub(pg);
+    if (w==="draw") return pg>0 ? `${state.playerName} scores to rescue a point.` : `A hard-fought point on the road.`;
+    // loss
+    return pg>0 ? `A rare off day for the team, but ${state.playerName} still found the net.` : `A rare defeat — they'll bounce back.`;
+  }
   function fullTime(){
     setClock("FULL TIME");
     const plan=state._matchPlan, myTeamName=plan.myTeamName;
@@ -1089,13 +1178,13 @@
       maybeQueueCup();
       const me=state.table[state.clubName];
       if (me.p>=state.fixtures.length){ verdict=`Champions of the ${tierName()}! 🏆`; sub=`${state.playerName} finishes the season a champion. Kick off to move up.`; }
-      else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=scorerSub(pg); }
+      else { verdict=leagueVerdict(myTeamName); sub=leagueSub(pg); }
     }
     else if (matchType==="friendly"){
       state.intlGoals+=pg; state.intlCaps++; state.careerGoals=(state.careerGoals||0)+pg;
       state.intlPending=false; state._friendlyOpp=null;
-      verdict=`${state.nationality} win ${myScore}–${oppScore}!`;
-      sub= pg>0 ? `${state.playerName} scores in the friendly. Cap #${state.intlCaps}.` : `A run-out for ${state.nationality}. Cap #${state.intlCaps}.`;
+      verdict= teamResultWord()==="win" ? `${state.nationality} win ${myScore}–${oppScore}!` : (teamResultWord()==="draw" ? `${state.nationality} draw ${myScore}–${oppScore}` : `${state.nationality} lose ${myScore}–${oppScore}`);
+      sub= pg>0 ? `${state.playerName} scores for ${state.nationality}. Cap #${state.intlCaps}.` : `A run-out for ${state.nationality}. Cap #${state.intlCaps}.`;
     }
     else if (matchType==="tournament"){
       const t=state.intlTournament;
@@ -1140,9 +1229,10 @@
   function simulateOtherFixtures(excludeOpp){
     // Proper matchday: the six clubs not involved in the player's game pair up
     // into three fixtures, so every club advances exactly one game each round
-    // and all eight finish the season on the same number played.
+    // and all eight finish the season on the same number played. Rival scoring is
+    // kept modest so the player reliably finishes top even after dropping points.
     const others=shuffle(Object.keys(state.table).filter(n=>n!==state.clubName&&n!==excludeOpp));
-    for (let i=0;i+1<others.length;i+=2){ const a=state.table[others[i]],b=state.table[others[i+1]]; const ga=Math.floor(Math.random()*4),gb=Math.floor(Math.random()*4);
+    for (let i=0;i+1<others.length;i+=2){ const a=state.table[others[i]],b=state.table[others[i+1]]; const ga=Math.floor(Math.random()*3),gb=Math.floor(Math.random()*3);
       a.p++;b.p++;a.gf+=ga;a.ga+=gb;b.gf+=gb;b.ga+=ga; if(ga>gb){a.w++;a.pts+=3;b.l++;}else if(gb>ga){b.w++;b.pts+=3;a.l++;}else{a.d++;a.pts++;b.d++;b.pts++;} }
   }
   function bumpRivalScorers(){ const keys=Object.keys(state.scorers).filter(k=>k!=="__me"); const meG=state.scorers["__me"]; keys.forEach(k=>{ if(Math.random()<0.4 && state.scorers[k]<meG-1) state.scorers[k]++; }); }
@@ -1150,6 +1240,12 @@
   function endSeasonAndAdvance(){
     // finalise season log
     const me=state.table[state.clubName];
+    // The player is always champion. On the rare season where dropped points leave
+    // a rival level or ahead, nudge the player's points so the trophy is consistent
+    // with a genuine top-of-the-table finish (keeps the story believable).
+    let rivalBest=0;
+    Object.keys(state.table).forEach(n=>{ if(n!==state.clubName) rivalBest=Math.max(rivalBest, state.table[n].pts); });
+    if (me.pts <= rivalBest){ me.pts = rivalBest + 1; }
     state.seasonLog.champions = true; // always tops the league
     if (state.tierIndex < TIERS.length-1){ state.seasonLog.promoted = true; }
     if (state.seasonLog.champions) state.careerTrophies=(state.careerTrophies||0)+1;
@@ -1242,6 +1338,46 @@
   function renameSlot(id){ const c=saves.slots[id]; if(!c) return; const name=prompt("Rename this career:",c.saveName); if(name===null) return; c.saveName=name.trim()||c.saveName; persist(); renderSlots(); }
   function deleteSlot(id){ const c=saves.slots[id]; if(!c) return; if(!confirm(`Delete "${c.saveName}" (${c.clubName})? This can't be undone.`)) return; delete saves.slots[id]; saves.order=saves.order.filter(x=>x!==id); if(saves.currentId===id){ saves.currentId=saves.order[0]; state=saves.slots[saves.currentId]; ensureSeason(state); } persist(); renderSlots(); renderCurrentTab(); toast("Career deleted"); }
 
+  // ================= COPY / PASTE SAVE CODE =================
+  function mergeSavesFromObject(parsed){
+    if(!parsed||!parsed.slots||!parsed.order) throw new Error("bad");
+    let added=0;
+    parsed.order.forEach(id=>{ if(parsed.slots[id]&&!saves.slots[id]){ saves.slots[id]=parsed.slots[id]; saves.order.push(id); added++; } });
+    if(added===0){ saves=parsed; if(!saves.slots[saves.currentId]) saves.currentId=saves.order[0]; }
+    state=saves.slots[saves.currentId]; ensureSeason(state);
+    persist(); renderSlots(); renderCurrentTab();
+    return added;
+  }
+  function openCodeModal(mode){
+    const box=$("codeBox"), title=$("codeTitle"), hint=$("codeHint"), action=$("codeActionBtn");
+    if (mode==="copy"){
+      title.textContent="Copy save code";
+      hint.textContent="This is all your careers as text. Copy it and keep it somewhere safe — a note, or a message to yourself.";
+      box.value=JSON.stringify(saves); box.readOnly=true;
+      action.textContent="Copy to clipboard";
+      action.onclick=async()=>{
+        box.focus(); box.select();
+        let ok=false;
+        try{ if(navigator.clipboard&&navigator.clipboard.writeText){ await navigator.clipboard.writeText(box.value); ok=true; } }catch(e){}
+        if(!ok){ try{ ok=document.execCommand("copy"); }catch(e){} }
+        toast(ok?"Save code copied!":"Select the text and copy it");
+      };
+    } else {
+      title.textContent="Paste save code";
+      hint.textContent="Paste a save code below, then tap Restore.";
+      box.value=""; box.readOnly=false;
+      action.textContent="Restore";
+      action.onclick=()=>{
+        const txt=box.value.trim();
+        if(!txt){ toast("Paste a save code first"); return; }
+        try{ const added=mergeSavesFromObject(JSON.parse(txt)); closeCodeModal(); closeSaves(); toast(added>0?`Restored ${added} career${added>1?'s':''}`:"Careers restored"); }
+        catch(err){ toast("That code didn't look right"); }
+      };
+    }
+    $("codeModal").classList.add("open");
+  }
+  function closeCodeModal(){ $("codeModal").classList.remove("open"); }
+
   // ================= EXPORT / IMPORT =================
   function exportSaves(){ const data=JSON.stringify(saves,null,2); const blob=new Blob([data],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); const stamp=new Date().toISOString().slice(0,10); a.href=url; a.download="dream-career-backup-"+stamp+".json"; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(()=>URL.revokeObjectURL(url),1000); toast("Backup file saved"); }
   function importSaves(file){ const reader=new FileReader(); reader.onload=e=>{ try{ const parsed=JSON.parse(e.target.result); if(!parsed||!parsed.slots||!parsed.order) throw new Error("bad"); let added=0; parsed.order.forEach(id=>{ if(parsed.slots[id]&&!saves.slots[id]){ saves.slots[id]=parsed.slots[id]; saves.order.push(id); added++; } }); if(added===0){ saves=parsed; if(!saves.slots[saves.currentId]) saves.currentId=saves.order[0]; } state=saves.slots[saves.currentId]; ensureSeason(state); persist(); renderSlots(); renderCurrentTab(); toast(added>0?`Restored ${added} career${added>1?'s':''}`:"Careers restored"); }catch(err){ toast("Couldn't read that file"); } }; reader.readAsText(file); }
@@ -1255,6 +1391,10 @@
   $("openSaves").addEventListener("click", openSaves);
   $("savesModal").addEventListener("click", e=>{ if(e.target===$("savesModal")) closeSaves(); });
   $("newCareerBtn").addEventListener("click", newCareerFlow);
+  $("copyCodeBtn").addEventListener("click", ()=>openCodeModal("copy"));
+  $("pasteCodeBtn").addEventListener("click", ()=>openCodeModal("paste"));
+  $("codeCloseBtn").addEventListener("click", closeCodeModal);
+  $("codeModal").addEventListener("click", e=>{ if(e.target===$("codeModal")) closeCodeModal(); });
   $("exportBtn").addEventListener("click", exportSaves);
   $("importBtn").addEventListener("click", ()=>$("importFile").click());
   $("importFile").addEventListener("change", e=>{ if(e.target.files&&e.target.files[0]) importSaves(e.target.files[0]); e.target.value=""; });
