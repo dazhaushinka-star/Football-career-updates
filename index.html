@@ -154,6 +154,21 @@
   .sb-score { font-family: 'Anton', sans-serif; font-size: 40px; padding: 0 14px; min-width: 96px; text-align: center; }
   .sb-clock { text-align: center; font-family: 'Barlow Condensed', sans-serif; color: var(--gold); letter-spacing: 2px; font-size: 14px; margin-bottom: 14px; }
 
+  .winprob { margin-bottom: 16px; }
+  .wp-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.55); }
+  .wp-label #wpTitle { color: rgba(255,255,255,0.4); font-size: 10px; letter-spacing: 1.5px; }
+  .wp-label span:first-child { color: var(--gold); font-weight: 700; }
+  .wp-bar { display: flex; height: 14px; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.3); border: 1px solid var(--pitch-line); }
+  .wp-seg { height: 100%; transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+  .wp-seg.wp-win { background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
+  .wp-seg.wp-draw { background: rgba(255,255,255,0.25); }
+  .wp-seg.wp-loss { background: rgba(224,90,90,0.6); }
+  .wp-nums { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; color: rgba(255,255,255,0.6); }
+  .wp-nums .wp-n b { font-family: 'Anton', sans-serif; font-size: 15px; font-weight: 400; }
+  .wp-nums .wp-n.win b { color: var(--gold); }
+  .wp-nums .wp-n.draw b { color: rgba(255,255,255,0.85); }
+  .wp-nums .wp-n.loss b { color: var(--danger); }
+
   .commentary { min-height: 200px; display: flex; flex-direction: column; gap: 10px; }
   .line {
     background: rgba(0,0,0,0.28); border-left: 3px solid var(--pitch-line); padding: 10px 12px;
@@ -447,6 +462,19 @@
         <div class="sb-team" id="mbAway"></div>
       </div>
       <div class="sb-clock" id="mbClock">KICK OFF</div>
+      <div class="winprob" id="winProb">
+        <div class="wp-label"><span id="wpMineLbl">You</span><span id="wpTitle">Win Probability</span><span id="wpOppLbl">Opp</span></div>
+        <div class="wp-bar">
+          <div class="wp-seg wp-win" id="wpWin"></div>
+          <div class="wp-seg wp-draw" id="wpDraw"></div>
+          <div class="wp-seg wp-loss" id="wpLoss"></div>
+        </div>
+        <div class="wp-nums">
+          <span class="wp-n win"><b id="wpWinN">–</b> win</span>
+          <span class="wp-n draw"><b id="wpDrawN">–</b> draw</span>
+          <span class="wp-n loss"><b id="wpLossN">–</b> lose</span>
+        </div>
+      </div>
       <div class="panel"><div class="commentary" id="commentary"></div></div>
       <div id="ftControls" class="hidden">
         <div class="panel fulltime">
@@ -1084,6 +1112,55 @@
 
   // ================= MATCH ENGINE =================
   let myScore=0, oppScore=0, timer=null, matchType="league", matchOpp="", matchHome=true;
+  let matchOppStrength=0.4;
+
+  // Opponent strength on a 0 (minnows) .. 1 (elite) scale.
+  function opponentStrength(){
+    if (matchType==="league"){
+      // Based on the opponent's league position: top teams are tougher.
+      const rows=Object.keys(state.table).map(n=>({name:n,pts:state.table[n].pts,gd:state.table[n].gf-state.table[n].ga}));
+      rows.sort((a,b)=> b.pts-a.pts || b.gd-a.gd);
+      const idx=rows.findIndex(r=>r.name===matchOpp);
+      const n=rows.length; // 8
+      if (idx<0) return 0.4;
+      // 1st place -> ~0.75, bottom -> ~0.1; scaled by division (higher tiers tougher overall)
+      const posStrength = 0.75 - (idx/(n-1))*0.6;
+      const tierBoost = state.tierIndex*0.04; // Prem opponents a bit stronger across the board
+      return Math.max(0.05, Math.min(1, posStrength + tierBoost));
+    }
+    if (matchType==="cup"){
+      // European opponents are strong; the further the stage, the tougher.
+      const stageBump={group:0.0, qf:0.08, sf:0.14, final:0.20}[state.cup?state.cup.stage:"group"]||0;
+      return Math.min(1, 0.6 + stageBump + Math.random()*0.1);
+    }
+    if (matchType==="tournament"){
+      const stageBump={group:0.0, qf:0.1, sf:0.16, final:0.22}[state.intlTournament?state.intlTournament.stage:"group"]||0;
+      return Math.min(1, 0.58 + stageBump + Math.random()*0.1);
+    }
+    // friendly
+    return 0.35 + Math.random()*0.25;
+  }
+
+  // Compute win/draw/loss % from opponent strength and current goal difference.
+  function computeProb(oppStrength, goalDiff){
+    const baseEdge = 1.8 - oppStrength*2.4;   // strong favourite vs weak, underdog vs elite
+    const x = baseEdge + goalDiff*0.9;
+    const pWinRaw = 1/(1+Math.exp(-x));
+    const drawBase = 0.24*Math.exp(-Math.abs(x)*0.5);
+    const nonDraw = 1-drawBase;
+    let pWin=pWinRaw*nonDraw, pLoss=(1-pWinRaw)*nonDraw, pDraw=drawBase;
+    const t=pWin+pDraw+pLoss; pWin/=t; pDraw/=t; pLoss/=t;
+    let w=Math.round(pWin*100), d=Math.round(pDraw*100), l=Math.round(pLoss*100);
+    const s=w+d+l; if(s!==100) w+=100-s;
+    return {w,d,l};
+  }
+
+  function renderWinProb(){
+    const gd = myScore-oppScore;
+    const p = computeProb(matchOppStrength, gd);
+    $("wpWin").style.width=p.w+"%"; $("wpDraw").style.width=p.d+"%"; $("wpLoss").style.width=p.l+"%";
+    $("wpWinN").textContent=p.w+"%"; $("wpDrawN").textContent=p.d+"%"; $("wpLossN").textContent=p.l+"%";
+  }
 
   function planOutcome(bandKey){
     // Team win/draw/loss weights come from the season band for league games.
@@ -1155,6 +1232,13 @@
     const intlCls=(matchType==="tournament"||matchType==="friendly")?" intl":"";
     $("mbHome").className="sb-team"+(matchHome?" mine":"")+(matchHome?intlCls:"");
     $("mbAway").className="sb-team"+(!matchHome?" mine":"")+(!matchHome?intlCls:"");
+
+    // Win probability: rate the opponent's strength, then show pre-match odds (score level).
+    matchOppStrength = opponentStrength();
+    $("wpMineLbl").textContent = myTeamName;
+    $("wpOppLbl").textContent = matchOpp;
+    $("winProb").style.display="";
+    renderWinProb();
 
     // ---- Plan the match outcome ----
     // League games follow the season's team "band" (title/europe/mid/releg), so the
@@ -1297,6 +1381,7 @@
     const homeScore = matchHome ? myScore : oppScore;
     const awayScore = matchHome ? oppScore : myScore;
     $("mbHomeScore").textContent=homeScore; $("mbAwayScore").textContent=awayScore;
+    renderWinProb(); // live-update the win probability as the score changes
   }
 
   function teamResultWord(){ return myScore>oppScore?"win":(myScore<oppScore?"lose":"draw"); }
@@ -1320,6 +1405,7 @@
   }
   function fullTime(){
     setClock("FULL TIME");
+    $("winProb").style.display="none"; // odds no longer meaningful once the result is in
     const plan=state._matchPlan, myTeamName=plan.myTeamName;
     const pg=$("commentary").querySelectorAll(".line.goal").length;
     let verdict="", sub="";
