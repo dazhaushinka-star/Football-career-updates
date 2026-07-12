@@ -177,6 +177,34 @@
   .line.goal { border-left-color: var(--gold); background: rgba(247,201,72,0.14); font-weight: 600; }
   .line.goal .big { display: block; font-family: 'Anton', sans-serif; font-size: 22px; color: var(--gold); letter-spacing: 1px; margin-bottom: 2px; }
   .line.flavour { border-left-color: rgba(255,255,255,0.25); background: rgba(0,0,0,0.18); font-size: 14px; color: rgba(255,255,255,0.82); }
+  .line.benchraid {
+    border-left-color: var(--gold);
+    background: linear-gradient(120deg, rgba(247,201,72,0.22), rgba(176,123,255,0.14));
+    font-weight: 600;
+    box-shadow: 0 0 20px rgba(247,201,72,0.25);
+    animation: raidPulse 0.6s ease;
+  }
+  .line.benchraid .big { display: block; font-family: 'Anton', sans-serif; font-size: 24px; color: var(--gold); letter-spacing: 1px; margin-bottom: 2px; text-shadow: 0 0 12px rgba(247,201,72,0.5); }
+  @keyframes raidPulse { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+
+  /* Full-screen celebratory flash + confetti for a bench raid */
+  .raid-flash {
+    position: fixed; inset: 0; z-index: 200; pointer-events: none;
+    max-width: 640px; margin: 0 auto;
+    animation: raidGlow 2.2s ease forwards;
+  }
+  @keyframes raidGlow {
+    0% { background: radial-gradient(circle at 50% 60%, rgba(247,201,72,0.35), transparent 60%); }
+    100% { background: transparent; }
+  }
+  .raid-flash span {
+    position: absolute; top: -20px; width: 10px; height: 14px; border-radius: 2px;
+    animation: confettiFall 2s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(105vh) rotate(720deg); opacity: 0.4; }
+  }
   @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   .fulltime { text-align: center; padding: 8px 0 4px; }
@@ -685,7 +713,18 @@
     // roll this season's team ambition band
     c.band = rollBand(c.tierIndex);
     // fresh season log
-    c.seasonLog = { season:c.season, tier:TIERS[c.tierIndex], leagueGoals:0, promoted:false, relegated:false, champions:false, finishPos:null, band:c.band, clTrophy:false, euroComp:c.euroComp||null, euroTrophy:null, intlTrophy:null, intlComp:null };
+    c.seasonLog = { season:c.season, tier:TIERS[c.tierIndex], leagueGoals:0, promoted:false, relegated:false, champions:false, finishPos:null, band:c.band, clTrophy:false, euroComp:c.euroComp||null, euroTrophy:null, intlTrophy:null, intlComp:null, deduction:null };
+    // Rare -4 point deduction this season (financial/rule breach). Usually a rival,
+    // occasionally the player's own club. Applied up front and shown in the table.
+    c.pointDeductions = {}; // clubName -> points docked
+    if (Math.random() < 0.12){
+      const hitPlayer = Math.random() < 0.25; // mostly rivals
+      const club = hitPlayer ? c.clubName : pick(rivals);
+      c.pointDeductions[club] = 4;
+      c.table[club].pts -= 4;          // apply the deduction to the table immediately
+      c.table[club].deducted = 4;      // mark for display
+      if (hitPlayer) c.seasonLog.deduction = 4;
+    }
     // set up the European cup he qualified for last season (if any)
     c.cup=null; c.cupNextQueued=false;
     if (c.euroComp){ startCup(c, c.euroComp); }
@@ -924,8 +963,9 @@
     const body=$("tableBody"); body.innerHTML="";
     rows.forEach((r,i)=>{ const tr=document.createElement("tr"); if(r.name===state.clubName) tr.className="me";
       const col=clubColour(r.name);
+      const dedMark = r.deducted ? ` <span style="color:var(--danger);font-size:10px;font-weight:700" title="Points deducted">(-${r.deducted})</span>` : "";
       tr.innerHTML=`<td class="pos">${i+1}</td>
-        <td class="club-col"><div class="cc"><span class="dot" style="background:${col};color:${textOn(col)}">${initials(r.name)}</span>${escapeHtml(r.name)}</div></td>
+        <td class="club-col"><div class="cc"><span class="dot" style="background:${col};color:${textOn(col)}">${initials(r.name)}</span>${escapeHtml(r.name)}${dedMark}</div></td>
         <td>${r.p}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
         <td>${(r.gf-r.ga)>=0?'+':''}${r.gf-r.ga}</td><td class="pts">${r.pts}</td>`;
       body.appendChild(tr); });
@@ -1099,6 +1139,7 @@
       else lines.push(`Finished ${h.tier}`);
       if (h.promoted) lines.push(`<span class="medal">⬆ Promoted</span>`);
       if (h.relegated) lines.push(`<span style="color:var(--danger);font-weight:700">⬇ Relegated</span>`);
+      if (h.deduction) lines.push(`<span style="color:var(--danger);font-weight:700">−${h.deduction} pts docked</span>`);
       lines.push(`${h.leagueGoals} league goals`);
       if (h.clTrophy) lines.push(`<span class="medal">🏆 Champions League winners</span>`);
       else if (euroTrophyName) lines.push(`<span class="medal">🏆 ${euroTrophyName} winners</span>`);
@@ -1169,20 +1210,35 @@
     if (bandKey && BAND_MATCH[bandKey]){ w=BAND_MATCH[bandKey][0]; d=BAND_MATCH[bandKey][1]; }
     const r=Math.random();
     let outcome = r<w ? "win" : (r<w+d ? "draw" : "loss");
-    let myGoals, theirGoals, comeback=false;
+    let myGoals, theirGoals, comeback=false, bigComeback=false, comebackVictim=false;
     if (outcome==="win"){
       const b=Math.random();
       let margin;
       if (b<0.55) margin=1+Math.floor(Math.random()*2);        // routine 1–2
       else if (b<0.85) margin=3+Math.floor(Math.random()*2);   // comfortable 3–4
       else margin=5+Math.floor(Math.random()*6);               // thrashing 5–10
-      comeback = Math.random()<0.20;
-      if (comeback){ theirGoals=1+Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
-      else { theirGoals=Math.random()<0.5?0:Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
+      // Rare heroic comeback from 3-0 or 4-0 down — and still win.
+      if (Math.random()<0.05){
+        bigComeback=true; comeback=true;
+        theirGoals=3+Math.floor(Math.random()*2);              // 3 or 4 conceded early
+        myGoals=theirGoals+ (1+Math.floor(Math.random()*2));   // win by 1–2
+      } else {
+        comeback = Math.random()<0.20;
+        if (comeback){ theirGoals=1+Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
+        else { theirGoals=Math.random()<0.5?0:Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
+      }
       if (myGoals>10) myGoals=10;
     } else if (outcome==="draw"){
-      const g=1+Math.floor(Math.random()*2);                   // 1–1 or 2–2
-      myGoals=g; theirGoals=g;
+      // Rare: his team races 3-0/4-0 up, the opponent stages a big comeback to draw
+      // (they can pull level from a big deficit, but never actually win).
+      if (Math.random()<0.06){
+        comebackVictim=true;
+        const lead=3+Math.floor(Math.random()*2);              // was 3 or 4 up
+        myGoals=lead; theirGoals=lead;                          // opponent claws all the way back
+      } else {
+        const g=1+Math.floor(Math.random()*2);                 // 1–1 or 2–2
+        myGoals=g; theirGoals=g;
+      }
     } else {                                                    // narrow loss
       theirGoals=2+Math.floor(Math.random()*2);                // 2–3
       myGoals=theirGoals-1;                                     // lose by one, still scored
@@ -1196,7 +1252,7 @@
         : Math.min(myGoals, 1+Math.floor(Math.random()*myGoals));
       if (playerGoals<1) playerGoals=1;
     }
-    return {outcome, myGoals, theirGoals, playerGoals, comeback};
+    return {outcome, myGoals, theirGoals, playerGoals, comeback, bigComeback, comebackVictim};
   }
 
   function startMatch(){
@@ -1264,6 +1320,13 @@
       events.length=0; events.push(...theirs, ...mine);
       let minute=5+Math.floor(Math.random()*8);
       events.forEach((ev,i)=>{ ev.minute=minute; minute += (i<theirs.length) ? 4+Math.floor(Math.random()*8) : 6+Math.floor(Math.random()*16); if(minute>90) minute=82+Math.floor(Math.random()*8); });
+    } else if (plan.comebackVictim){
+      // our goals first (we race into a big lead), opponent claws all the way back
+      const mine=events.filter(e=>e.type==="myGoal").sort(()=>Math.random()-0.5);
+      const theirs=events.filter(e=>e.type==="theirGoal");
+      events.length=0; events.push(...mine, ...theirs);
+      let minute=5+Math.floor(Math.random()*8);
+      events.forEach((ev,i)=>{ ev.minute=minute; minute += (i<mine.length) ? 4+Math.floor(Math.random()*8) : 6+Math.floor(Math.random()*16); if(minute>90) minute=82+Math.floor(Math.random()*8); });
     } else {
       events.sort(()=>Math.random()-0.5);
       let minute=4+Math.floor(Math.random()*6);
@@ -1280,7 +1343,27 @@
     const timeline = [...events.map(e=>({...e, cat:"goal"})), ...flavour];
     timeline.sort((a,b)=>a.minute-b.minute);
 
-    state._matchPlan={myTeamName, outcome:plan.outcome, comeback:plan.comeback};
+    // Is this a "big occasion" match where a late decisive goal warrants a bench raid?
+    // Cup/European finals, international finals, and title-deciding league games qualify.
+    let bigOccasion=false, occasionType="";
+    if (matchType==="cup" && state.cup && state.cup.stage==="final"){ bigOccasion=true; occasionType="final"; }
+    else if (matchType==="tournament" && state.intlTournament && state.intlTournament.stage==="final"){ bigOccasion=true; occasionType="final"; }
+    else if (matchType==="league"){
+      // Title-decider: the final league game, and only if a win would clinch top spot.
+      const me=state.table[state.clubName];
+      const gamesAfter = (me.p||0)+1;
+      const isLastGame = gamesAfter >= state.fixtures.length;
+      if (isLastGame){
+        // Would a win put the player top? Compare projected points to the best rival.
+        let rivalBest=0;
+        Object.keys(state.table).forEach(n=>{ if(n!==state.clubName) rivalBest=Math.max(rivalBest, state.table[n].pts); });
+        const myProjected = (me.pts||0) + 3; // assume the win
+        if (myProjected >= rivalBest){ bigOccasion=true; occasionType="title"; }
+      }
+    }
+
+    state._matchPlan={myTeamName, outcome:plan.outcome, comeback:plan.comeback, bigComeback:plan.bigComeback, comebackVictim:plan.comebackVictim, bigOccasion, occasionType};
+    state._benchRaidDone=false;
 
     let idx=0; setClock("KICK OFF");
     addLine("The whistle blows. "+myTeamName+" get us underway against "+matchOpp+".");
@@ -1292,11 +1375,50 @@
           if (ev.penalty && ev.byPlayer) addGoalLine(ev.minute, "slots home the penalty");
           else if (ev.byPlayer) addGoalLine(ev.minute);
           else addLine(`${ev.minute}' — GOAL for ${myTeamName}! A teammate finishes a lovely move.`);
+          maybeBenchRaid(ev.minute, myTeamName);
         } else { oppScore++; updateBoard(); addLine(`${ev.minute}' — ${oppGoalText(myTeamName)}`); }
       } else {
         addFlavourLine(ev, myTeamName);
       }
     },1150);
+  }
+
+  function maybeBenchRaid(minute, myTeamName){
+    if (state._benchRaidDone) return;
+    if (minute < 80) return;                 // only late drama
+    const mp=state._matchPlan||{};
+    // The goal must be decisive: it just put us ahead (a late winner), typically
+    // level-or-behind -> in front. That captures comeback-sealers and late winners.
+    const justWentAhead = (myScore === oppScore+1);
+    if (!justWentAhead) return;
+    // And the occasion must be big: a significant comeback, OR a final/title decider.
+    const bigComebackGame = mp.bigComeback || mp.comeback;
+    const bigGame = mp.bigOccasion;
+    if (!bigComebackGame && !bigGame) return;
+
+    state._benchRaidDone=true;
+    // Choose the flavour of the moment
+    let headline="BENCH RAID!", detail;
+    if (mp.occasionType==="title") detail = `The bench empties — the whole squad floods the pitch! This goal wins the title!`;
+    else if (mp.occasionType==="final") detail = `Every sub sprints on in delirium — they know what this goal means in a final!`;
+    else if (mp.bigComeback) detail = `The subs can't contain themselves — they storm the pitch to celebrate an incredible comeback!`;
+    else detail = `The bench empties in wild celebration — the players mob ${state.playerName}!`;
+    addBenchRaidLine(minute, headline, detail);
+    flashScreen();
+  }
+
+  function addBenchRaidLine(minute, headline, detail){
+    const d=document.createElement("div"); d.className="line benchraid";
+    d.innerHTML=`<span class="big">🎉 ${headline}</span>${minute}' — ${detail}`;
+    $("commentary").appendChild(d); scrollComm();
+  }
+
+  function flashScreen(){
+    const f=document.createElement("div"); f.className="raid-flash";
+    // a few confetti-like bursts
+    for(let i=0;i<14;i++){ const s=document.createElement("span"); s.style.left=(Math.random()*100)+"%"; s.style.animationDelay=(Math.random()*0.3)+"s"; s.style.background=pick(["#f7c948","#35a7ff","#e05a5a","#159947","#b07bff","#fff"]); f.appendChild(s); }
+    document.body.appendChild(f);
+    setTimeout(()=>{ f.remove(); }, 2200);
   }
 
   function buildFlavourEvents(goalEvents, myTeamName, plan){
@@ -1393,10 +1515,17 @@
   }
   function leagueSub(pg){
     const w=teamResultWord();
-    const cb=state._matchPlan && state._matchPlan.comeback;
+    const mp=state._matchPlan||{};
+    const cb=mp.comeback, big=mp.bigComeback, victim=mp.comebackVictim;
+    if (w==="win" && big){
+      return `From ${oppScore}-0 down to a ${myScore}-${oppScore} win! One of the great comebacks — ${state.playerName} leads the fightback. Unbelievable scenes!`;
+    }
     if (w==="win" && cb){
       if (pg>1) return `Comeback king! ${state.playerName} hauls the team back with ${pg} — what a turnaround.`;
       return `Down but never out — ${state.playerName} inspires the comeback. The comeback king does it again!`;
+    }
+    if (w==="draw" && victim){
+      return `Heart-stopper — ${myTeamName} raced into a big lead but were pegged back to a draw. ${pg>0?`${state.playerName} was still on the scoresheet.`:''}`;
     }
     if (w==="win") return scorerSub(pg);
     if (w==="draw") return pg>0 ? `${state.playerName} scores to rescue a point.` : `A hard-fought point on the road.`;
@@ -1511,7 +1640,16 @@
     if (log.champions) state.careerTrophies=(state.careerTrophies||0)+1;
 
     // Determine next season's European qualification from this finish.
-    const nextEuro = euroCompForFinish(state.tierIndex, pos);
+    const finishEuro = euroCompForFinish(state.tierIndex, pos);
+    // Winning a European cup promotes you to the competition above it next season
+    // (Conference winners -> Europa, Europa winners -> Champions League).
+    const EURO_RANK = { uecl:1, uel:2, cl:3 };
+    const EURO_UP   = { uecl:"uel", uel:"cl", cl:"cl" };
+    let winEuro = null;
+    if (log.euroTrophy){ winEuro = EURO_UP[log.euroTrophy] || null; }
+    // Take whichever route gives the higher competition.
+    let nextEuro = finishEuro;
+    if (winEuro && (!nextEuro || EURO_RANK[winEuro] > EURO_RANK[nextEuro])) nextEuro = winEuro;
 
     // Record history
     state.history.push(log);
@@ -1525,13 +1663,21 @@
     }
 
     state.season++;
-    // Carry the European qualification into next season (Europe follows the club even if relegated,
-    // but only the top tiers qualify, so a relegated side simply won't have one next year).
-    state.euroComp = euroCompForFinish(state.tierIndex, 1)!==null ? nextEuro : nextEuro; // keep as computed
-    // If the new tier can't play in Europe at all, clear it.
+    // Carry next season's European qualification (from league finish or a cup win, whichever is higher).
+    state.euroComp = nextEuro;
+    // European football only exists from the Championship upward.
     if (state.tierIndex < CL_TIER_INDEX) state.euroComp = null;
+    // Announce a cup-win promotion so it's visible.
+    if (winEuro && state.euroComp===winEuro && winEuro!==finishEuro && EURO_COMPS[winEuro]){
+      setTimeout(()=>toast("Into the "+EURO_COMPS[winEuro].name+" next season! 🎉"), 400);
+    }
 
     startSeason(state); // sets up new table, band, cup (from euroComp), intl season
+
+    // If the new season opened with a points deduction against the player's club, flag it.
+    if (state.pointDeductions && state.pointDeductions[state.clubName]){
+      setTimeout(()=>toast("⚠ "+state.clubName+" hit with a 4-point deduction this season."), 700);
+    }
   }
 
   function backToClub(){ showOnly("tab-"+currentTab); renderCurrentTab(); window.scrollTo({top:0,behavior:"smooth"}); }
