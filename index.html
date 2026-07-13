@@ -1236,7 +1236,8 @@
         const lead=3+Math.floor(Math.random()*2);              // was 3 or 4 up
         myGoals=lead; theirGoals=lead;                          // opponent claws all the way back
       } else {
-        const g=1+Math.floor(Math.random()*2);                 // 1–1 or 2–2
+        // Goalless draws happen occasionally; most draws are still 1–1 or 2–2.
+        const g = Math.random()<0.22 ? 0 : (1+Math.floor(Math.random()*2)); // 0–0, 1–1 or 2–2
         myGoals=g; theirGoals=g;
       }
     } else {                                                    // narrow loss
@@ -1430,6 +1431,15 @@
 
     const addEv=(minute,kind,side,detail)=>out.push({cat:"flavour", minute:Math.min(90,Math.max(2,minute)), kind, side, detail});
 
+    // Goalless game: guarantee a few near-misses so a 0-0 still tells a story.
+    const goalless = goalEvents.length===0;
+    if (goalless){
+      const nChances = 2 + Math.floor(Math.random()*2); // 2-3 close chances
+      for(let i=0;i<nChances;i++) addEv(15+Math.floor(Math.random()*70), "chance", Math.random()<0.6?"us":"them");
+    } else if (Math.random()<0.5){
+      addEv(15+Math.floor(Math.random()*70), "chance", Math.random()<0.6?"us":"them");
+    }
+
     // Offsides — common, harmless
     const nOff = Math.floor(Math.random()*3); // 0-2
     for(let i=0;i<nOff;i++) addEv(3+Math.floor(Math.random()*85), "offside", Math.random()<0.5?"us":"them");
@@ -1462,6 +1472,7 @@
     const teamWord = us ? myTeamName : matchOpp;
     let txt="";
     switch(ev.kind){
+      case "chance": txt = us ? `${myTeamName} go close — a great chance flashes just wide!` : `${matchOpp} nearly snatch it, but ${myTeamName} survive a scare.`; break;
       case "offside": txt = us ? `${teamWord} have the ball in the net but the flag is up — offside.` : `${matchOpp} caught offside as ${myTeamName} hold their line well.`; break;
       case "freekick": txt = us ? `${myTeamName} win a dangerous free kick in a good position.` : `Free kick to ${matchOpp}, but the defence stands firm.`; break;
       case "penmiss": txt = `PENALTY to ${myTeamName}! But ${state.playerName}'s spot-kick is saved — he'll want to forget that one.`; break;
@@ -1528,7 +1539,10 @@
       return `Heart-stopper — ${myTeamName} raced into a big lead but were pegged back to a draw. ${pg>0?`${state.playerName} was still on the scoresheet.`:''}`;
     }
     if (w==="win") return scorerSub(pg);
-    if (w==="draw") return pg>0 ? `${state.playerName} scores to rescue a point.` : `A hard-fought point on the road.`;
+    if (w==="draw"){
+      if (myScore===0) return `A goalless stalemate — ${state.playerName} couldn't quite find a way through today.`;
+      return pg>0 ? `${state.playerName} scores to rescue a point.` : `A hard-fought point on the road.`;
+    }
     // loss
     return pg>0 ? `A rare off day for the team, but ${state.playerName} still found the net.` : `A rare defeat — they'll bounce back.`;
   }
