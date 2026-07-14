@@ -622,9 +622,26 @@
     return null;
   }
 
-  const EUROPEAN_NATIONS = ["England","Scotland","Wales","Ireland","France","Spain","Germany","Italy","Portugal","Netherlands","Belgium","Croatia"];
-  const OTHER_NATIONS = ["Brazil","Argentina","Uruguay","Colombia","Mexico","USA","Japan","Nigeria","Senegal","Morocco"];
-  const NATIONS = [...EUROPEAN_NATIONS, ...OTHER_NATIONS];
+  const EUROPEAN_NATIONS = ["England","Scotland","Wales","Ireland","Northern Ireland","France","Spain","Germany","Italy","Portugal","Netherlands","Belgium","Croatia","Denmark","Sweden","Norway","Switzerland","Austria","Poland","Ukraine","Serbia","Greece","Turkey","Czechia","Hungary","Romania","Iceland"];
+  // Non-European nations grouped by continental confederation.
+  const SAMERICA_NATIONS = ["Brazil","Argentina","Uruguay","Colombia","Chile","Peru","Ecuador","Paraguay","Bolivia","Venezuela"];
+  const NAMERICA_NATIONS = ["USA","Mexico","Canada","Costa Rica","Jamaica","Panama","Honduras"];
+  const AFRICA_NATIONS = ["Nigeria","Senegal","Morocco","Egypt","Ghana","Cameroon","Ivory Coast","Algeria","Tunisia","South Africa"];
+  const ASIA_NATIONS = ["Japan","South Korea","Australia","Saudi Arabia","Iran","Qatar","UAE","Iraq"];
+  const OTHER_NATIONS = [...SAMERICA_NATIONS, ...NAMERICA_NATIONS, ...AFRICA_NATIONS, ...ASIA_NATIONS];
+  const NATIONS = [...EUROPEAN_NATIONS, ...OTHER_NATIONS].sort();
+
+  // Which continental championship a nation belongs to, and who's eligible for it.
+  function confederationOf(nat){
+    if (EUROPEAN_NATIONS.includes(nat)) return "euro";
+    if (SAMERICA_NATIONS.includes(nat) || NAMERICA_NATIONS.includes(nat)) return "copa";
+    if (AFRICA_NATIONS.includes(nat)) return "afcon";
+    if (ASIA_NATIONS.includes(nat)) return "asian";
+    return "euro";
+  }
+  const CONTINENTAL_NAMES = { euro:"European Championship", copa:"Copa América", afcon:"Africa Cup of Nations", asian:"Asian Cup" };
+  const CONTINENTAL_SHORT = { euro:"Euros", copa:"Copa", afcon:"AFCON", asian:"Asian Cup" };
+  const CONTINENTAL_POOL = { euro:EUROPEAN_NATIONS, copa:[...SAMERICA_NATIONS,...NAMERICA_NATIONS], afcon:AFRICA_NATIONS, asian:ASIA_NATIONS };
 
   const POSITIONS = ["Striker","Winger","Midfielder","Playmaker"];
   const COLOURS = ["#d7263d","#1f6feb","#f7c948","#159947","#8b3ffb","#ff7a1a","#111827","#e84f97"];
@@ -645,8 +662,8 @@
   let state = null;
 
   function isEuropean(nat){ return EUROPEAN_NATIONS.includes(nat); }
-  function continentalName(nat){ return isEuropean(nat) ? "European Championship" : "Copa América"; }
-  function continentalShort(nat){ return isEuropean(nat) ? "Euros" : "Copa"; }
+  function continentalName(nat){ return CONTINENTAL_NAMES[confederationOf(nat)] || "Continental Cup"; }
+  function continentalShort(nat){ return CONTINENTAL_SHORT[confederationOf(nat)] || "Continental"; }
 
   function newCareer(name) {
     const c = {
@@ -767,9 +784,21 @@
 
   function eligibleNations(c){ return NATIONS.filter(n=>n!==c.nationality); }
 
+  // The pool of possible opponents for a given tournament.
+  // World Cup: every nation. Continental championship: only that confederation.
+  function tournamentPool(c, typeName){
+    let pool;
+    if (typeName==="World Cup"){ pool = NATIONS; }
+    else {
+      const conf = confederationOf(c.nationality);
+      pool = CONTINENTAL_POOL[conf] || NATIONS;
+    }
+    return pool.filter(n => n !== c.nationality);
+  }
+
   function makeTournament(c, typeName){
-    // group of 3 opponents, then QF, SF, Final — all vs other nations
-    const pool = shuffle(eligibleNations(c));
+    // group of 3 opponents, then QF, SF, Final — all vs eligible nations for THIS competition
+    const pool = shuffle(tournamentPool(c, typeName));
     const group = pool.slice(0,3);
     return {
       name: typeName,
@@ -789,7 +818,18 @@
     const ko = t.bracket[t.stage] || (t.bracket[t.stage]=makeKO(t));
     return ko.opp;
   }
-  function makeKO(t){ return { opp: t.poolRest.length? t.poolRest.pop() : pick(NATIONS), ms:null, os:null }; }
+  function makeKO(t){
+    let opp;
+    if (t.poolRest.length) opp = t.poolRest.pop();
+    else {
+      // Fallback: draw another eligible nation for this competition, avoiding repeats.
+      const used = new Set([...(t.groupOpp||[]), ...Object.values(t.bracket||{}).filter(Boolean).map(k=>k.opp)]);
+      const conf = t.name==="World Cup" ? NATIONS : (CONTINENTAL_POOL[confederationOf(state.nationality)]||NATIONS);
+      const avail = conf.filter(n=>n!==state.nationality && !used.has(n));
+      opp = avail.length ? pick(avail) : pick(conf.filter(n=>n!==state.nationality));
+    }
+    return { opp, ms:null, os:null };
+  }
 
   function recordTournamentResult(t, ms, os){
     if (t.stage==="group"){
