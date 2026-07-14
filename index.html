@@ -832,12 +832,17 @@
   }
 
   function recordTournamentResult(t, ms, os){
+    const won = ms>os;
     if (t.stage==="group"){
+      // Group games never eliminate — play all three, then into the knockouts.
       t.groupResults.push({opp:t.groupOpp[t.groupPtr], ms, os}); t.groupPtr++;
       if (t.groupPtr>=t.groupOpp.length) t.stage="qf";
-    } else if (t.stage==="qf"){ t.bracket.qf.ms=ms; t.bracket.qf.os=os; t.stage="sf"; }
-    else if (t.stage==="sf"){ t.bracket.sf.ms=ms; t.bracket.sf.os=os; t.stage="final"; }
-    else if (t.stage==="final"){ t.bracket.final.ms=ms; t.bracket.final.os=os; t.done=true; t.won=true; }
+      return;
+    }
+    // Knockout tie: winning advances, anything else is elimination.
+    if (t.stage==="qf"){ t.bracket.qf.ms=ms; t.bracket.qf.os=os; if(won){ t.stage="sf"; } else { t.done=true; t.won=false; t.eliminatedAt="qf"; } }
+    else if (t.stage==="sf"){ t.bracket.sf.ms=ms; t.bracket.sf.os=os; if(won){ t.stage="final"; } else { t.done=true; t.won=false; t.eliminatedAt="sf"; } }
+    else if (t.stage==="final"){ t.bracket.final.ms=ms; t.bracket.final.os=os; t.done=true; t.won=won; if(!won) t.eliminatedAt="final"; }
   }
 
   // ================= CHAMPIONS LEAGUE CUP =================
@@ -858,10 +863,14 @@
   function makeKOc(cup){ return { opp: cup.poolRest.length? cup.poolRest.pop() : pick(EURO_CLUBS), ms:null, os:null }; }
   function recordCupResult(ms,os){
     const cup=state.cup;
-    if (cup.stage==="group"){ cup.groupResults.push({opp:cup.groupOpp[cup.groupPtr],ms,os}); cup.groupPtr++; if(cup.groupPtr>=cup.groupOpp.length) cup.stage="qf"; }
-    else if (cup.stage==="qf"){ cup.bracket.qf.ms=ms; cup.bracket.qf.os=os; cup.stage="sf"; }
-    else if (cup.stage==="sf"){ cup.bracket.sf.ms=ms; cup.bracket.sf.os=os; cup.stage="final"; }
-    else if (cup.stage==="final"){ cup.bracket.final.ms=ms; cup.bracket.final.os=os; cup.done=true; cup.won=true; }
+    const won = ms>os;
+    if (cup.stage==="group"){
+      cup.groupResults.push({opp:cup.groupOpp[cup.groupPtr],ms,os}); cup.groupPtr++;
+      if(cup.groupPtr>=cup.groupOpp.length) cup.stage="qf";
+    }
+    else if (cup.stage==="qf"){ cup.bracket.qf.ms=ms; cup.bracket.qf.os=os; if(won){ cup.stage="sf"; } else { cup.done=true; cup.won=false; cup.eliminatedAt="qf"; } }
+    else if (cup.stage==="sf"){ cup.bracket.sf.ms=ms; cup.bracket.sf.os=os; if(won){ cup.stage="final"; } else { cup.done=true; cup.won=false; cup.eliminatedAt="sf"; } }
+    else if (cup.stage==="final"){ cup.bracket.final.ms=ms; cup.bracket.final.os=os; cup.done=true; cup.won=won; if(!won) cup.eliminatedAt="final"; }
     state.cupNextQueued=false;
   }
   function maybeQueueCup(){
@@ -1055,6 +1064,10 @@
     if(heading) heading.textContent=state.cup.name||"European Cup";
     box.innerHTML = bracketHtml(state.cup, state.clubName, false);
     if (state.cup.done && state.cup.won) box.innerHTML += `<div class="promo-note"><b>${state.cup.icon||'🏆'} ${escapeHtml(state.cup.name)} winners!</b> Qualify again to defend it next season.</div>`;
+    else if (state.cup.done && !state.cup.won){
+      const where = state.cup.eliminatedAt==="final" ? "lost in the final" : "knocked out in the "+stageLabel(state.cup.eliminatedAt||"qf");
+      box.innerHTML += `<div class="promo-note"><b style="color:var(--danger)">${escapeHtml(state.cup.name)} — ${where}.</b> There's always next season.</div>`;
+    }
   }
 
   // ================= RENDER: NATION =================
@@ -1254,9 +1267,10 @@
     if (outcome==="win"){
       const b=Math.random();
       let margin;
-      if (b<0.55) margin=1+Math.floor(Math.random()*2);        // routine 1–2
-      else if (b<0.85) margin=3+Math.floor(Math.random()*2);   // comfortable 3–4
-      else margin=5+Math.floor(Math.random()*6);               // thrashing 5–10
+      if (b<0.52) margin=1+Math.floor(Math.random()*2);        // routine 1–2
+      else if (b<0.82) margin=3+Math.floor(Math.random()*2);   // comfortable 3–4
+      else if (b<0.96) margin=5+Math.floor(Math.random()*6);   // thrashing 5–10
+      else margin=11+Math.floor(Math.random()*11);             // rare demolition 11–21
       // Rare heroic comeback from 3-0 or 4-0 down — and still win.
       if (Math.random()<0.05){
         bigComeback=true; comeback=true;
@@ -1267,7 +1281,7 @@
         if (comeback){ theirGoals=1+Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
         else { theirGoals=Math.random()<0.5?0:Math.floor(Math.random()*2); myGoals=theirGoals+margin; }
       }
-      if (myGoals>10) myGoals=10;
+      // no hard cap now — big scorelines are allowed, just rare
     } else if (outcome==="draw"){
       // Rare: his team races 3-0/4-0 up, the opponent stages a big comeback to draw
       // (they can pull level from a big deficit, but never actually win).
@@ -1339,12 +1353,34 @@
 
     // ---- Plan the match outcome ----
     // League games follow the season's team "band" (title/europe/mid/releg), so the
-    // team's fortunes vary. His personal scoring stays high regardless. Knockouts and
-    // internationals use the strong default and must be wins so brackets can progress.
-    const knockout = (matchType==="cup" || matchType==="tournament");
+    // team's fortunes vary. His personal scoring stays high regardless.
     const bandKey = (matchType==="league") ? state.band : null;
+    const isCup = (matchType==="cup"), isTourn = (matchType==="tournament");
+    const stage = isCup ? (state.cup&&state.cup.stage) : (isTourn ? (state.intlTournament&&state.intlTournament.stage) : null);
+    const isKnockoutStage = (isCup||isTourn) && stage && stage!=="group";
+
     let plan = planOutcome(bandKey);
-    if (knockout){ while (plan.outcome!=="win") plan=planOutcome(); }
+
+    if (isCup || isTourn){
+      // He's a strong favourite in Europe/at tournaments: ~75% to win a given tie.
+      // Group games may draw; knockout ties can't (someone must go through), so a
+      // "draw" plan there resolves to a narrow win or a narrow loss.
+      const winRoll = Math.random();
+      let desired = winRoll < 0.75 ? "win" : (isKnockoutStage ? "loss" : (Math.random()<0.5?"draw":"loss"));
+      // regenerate until we get the desired outcome shape
+      let guard=0;
+      while (plan.outcome!==desired && guard++<40) plan=planOutcome(bandKey);
+      // In a knockout, ensure it's decisive (no level scoreline).
+      if (isKnockoutStage && plan.myGoals===plan.theirGoals){
+        if (desired==="win") plan.myGoals=plan.theirGoals+1;
+        else plan.theirGoals=plan.myGoals+1;
+      }
+      // Even in a cup defeat, his player should still shine — guarantee he scores.
+      if (desired!=="win" && plan.myGoals===0){ plan.myGoals=1; if(plan.theirGoals<=1) plan.theirGoals=2; }
+      // recompute player goals so he's on the scoresheet whenever his side scored
+      if (plan.myGoals>0 && plan.playerGoals<1) plan.playerGoals=1;
+    }
+
     const myGoals = plan.myGoals, theirGoals = plan.theirGoals;
     let playerGoals = plan.playerGoals;
 
@@ -1614,6 +1650,8 @@
     }
     else if (matchType==="tournament"){
       const t=state.intlTournament;
+      const wonTie = myScore>oppScore;
+      const stageBefore = t.stage;
       recordTournamentResult(t, myScore, oppScore);
       state.intlGoals+=pg; state.intlCaps++; state.careerGoals=(state.careerGoals||0)+pg;
       if (t.done && t.won){
@@ -1622,23 +1660,41 @@
         state.seasonLog.intlTrophy=tn;
         verdict=`${tn} WINNERS! 🏆`;
         sub=`${state.playerName} lifts the ${tn} with ${state.nationality}!`;
+      } else if (t.done && !t.won){
+        // Eliminated (or lost the final)
+        const tn=t.name||"the tournament";
+        if (t.eliminatedAt==="final"){ verdict=`${state.nationality} lose the ${tn} final ${myScore}–${oppScore}`; sub=`So close — beaten in the final. ${pg>0?`${state.playerName} scored, but it wasn't to be.`:`${state.playerName} will be back.`}`; }
+        else { verdict=`${state.nationality} knocked out ${myScore}–${oppScore}`; sub=`Out of the ${tn} at the ${stageLabel(stageBefore)}. ${pg>0?`${state.playerName} found the net in defeat.`:`A tournament to forget for the team.`}`; }
+      } else if (stageBefore==="group"){
+        verdict=leagueVerdict(state.nationality); // group games can win/draw/lose
+        sub= wonTie ? `A group-stage win. ${scorerSub(pg)}` : (myScore===oppScore? `A group-stage draw. ${pg>0?state.playerName+' scored.':''}` : `A group defeat, but still in it. ${pg>0?state.playerName+' scored.':''}`);
       } else {
         verdict=`${state.nationality} win ${myScore}–${oppScore}!`;
-        sub=`Into the ${stageLabel(t.stage)}. ${scorerSub(pg)}`;
+        sub=`Into the ${stageLabel(t.stage)}! ${scorerSub(pg)}`;
       }
     }
     else if (matchType==="cup"){
+      const cup=state.cup;
+      const wonTie = myScore>oppScore;
+      const stageBefore = cup.stage;
       recordCupResult(myScore, oppScore);
       state.scorers["__me"]=(state.scorers["__me"]||0)+pg;
       state.careerGoals=(state.careerGoals||0)+pg;
-      if (state.cup.done && state.cup.won){
+      if (cup.done && cup.won){
         state.careerTrophies=(state.careerTrophies||0)+1;
-        const compKey = state.cup.comp || "cl";           // old saves had no comp -> treat as Champions League
-        state.seasonLog.euroTrophy = compKey;             // which European cup was won
-        if (compKey==="cl") state.seasonLog.clTrophy=true; // keep legacy flag for cabinet
-        const cn = state.cup.name || (EURO_COMPS[compKey] ? EURO_COMPS[compKey].name : "Champions League");
+        const compKey = cup.comp || "cl";
+        state.seasonLog.euroTrophy = compKey;
+        if (compKey==="cl") state.seasonLog.clTrophy=true;
+        const cn = cup.name || (EURO_COMPS[compKey] ? EURO_COMPS[compKey].name : "Champions League");
         verdict=`${cn} WINNERS! 🏆`; sub=`${state.playerName} lifts the ${cn} with ${myTeamName}.`;
-      } else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=`Into the ${stageLabel(state.cup.stage)}. ${scorerSub(pg)}`; }
+      } else if (cup.done && !cup.won){
+        const cn=cup.name||"the cup";
+        if (cup.eliminatedAt==="final"){ verdict=`${myTeamName} lose the ${cn} final ${myScore}–${oppScore}`; sub=`Runners-up — beaten in the final. ${pg>0?`${state.playerName} scored, but it wasn't enough.`:`Agonisingly close.`}`; }
+        else { verdict=`${myTeamName} knocked out ${myScore}–${oppScore}`; sub=`Out of the ${cn} at the ${stageLabel(stageBefore)}. ${pg>0?`${state.playerName} scored in defeat.`:`A night to forget.`}`; }
+      } else if (stageBefore==="group"){
+        verdict=leagueVerdict(myTeamName);
+        sub= wonTie ? `A European group win. ${scorerSub(pg)}` : (myScore===oppScore? `A European draw. ${pg>0?state.playerName+' scored.':''}` : `A group defeat, but the campaign goes on. ${pg>0?state.playerName+' scored.':''}`);
+      } else { verdict=`${myTeamName} win ${myScore}–${oppScore}!`; sub=`Into the ${stageLabel(cup.stage)}! ${scorerSub(pg)}`; }
     }
 
     const ok=persist();
